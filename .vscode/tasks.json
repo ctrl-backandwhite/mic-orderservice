@@ -1,0 +1,20 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build-orderservice",
+			"type": "shell",
+			"command": "cd /home/nexaplaform/Documentos/ecomerce/back/mic-orderservice && mvn clean package -DskipTests -q && echo BUILD_OK"
+		},
+		{
+			"label": "build-orderservice",
+			"type": "shell",
+			"command": "cd /home/nexaplaform/Documentos/ecomerce/back/mic-orderservice && mvn clean package -DskipTests -q && echo BUILD_SUCCESS || echo BUILD_FAILED"
+		},
+		{
+			"label": "build-orderservice",
+			"type": "shell",
+			"command": "cd /home/nexaplaform/Documentos/ecomerce/back/mic-orderservice && mvn clean package -DskipTests -q && echo BUILD_OK || echo BUILD_FAIL"
+		}
+	]
+}

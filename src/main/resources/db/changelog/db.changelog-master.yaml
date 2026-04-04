@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: Jesus.Finol
+      context: local,develop
+      changes:
+        - sqlFile:
+            path: db.changelog-1.0.sql
+            relativeToChangelogFile: "true"

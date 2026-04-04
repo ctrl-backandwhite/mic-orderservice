@@ -1,0 +1,14 @@
+server:
+    port: 6005
+
+spring:
+    application:
+        name: mic-orderservice
+    banner:
+        charset: UTF-8
+    profiles:
+        active: ${PROFILE}
+    cache:
+        type: caffeine
+        caffeine:
+            spec: maximumSize=500,expireAfterAccess=600s
