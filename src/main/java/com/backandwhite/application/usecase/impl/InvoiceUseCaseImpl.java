@@ -57,9 +57,13 @@ public class InvoiceUseCaseImpl implements InvoiceUseCase {
     @Override
     @Transactional
     public Invoice update(String id, Invoice invoice) {
-        invoiceRepository.findById(id)
+        Invoice existing = invoiceRepository.findById(id)
                 .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Invoice", id));
         invoice.setId(id);
+        // Preserve fields not present in the update DTO
+        if (invoice.getInvoiceNumber() == null) {
+            invoice.setInvoiceNumber(existing.getInvoiceNumber());
+        }
         return invoiceRepository.update(invoice);
     }
 }
