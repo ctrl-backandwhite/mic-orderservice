@@ -12,7 +12,9 @@ spring:
                 dialect: org.hibernate.dialect.PostgreSQLDialect
         show-sql: true
     liquibase:
-        enabled: false
+        enabled: true
+        change-log: classpath:db/changelog/db.changelog-master.yaml
+        contexts: local
     kafka:
         bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
         enabled: true
