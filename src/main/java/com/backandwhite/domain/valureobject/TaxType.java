@@ -1,5 +1,5 @@
 package com.backandwhite.domain.valureobject;
 
 public enum TaxType {
-    VAT, SALES, GST
+    VAT, SALES, GST, PERCENTAGE, FIXED
 }
