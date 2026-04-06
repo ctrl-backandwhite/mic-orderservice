@@ -1,9 +1,9 @@
 package com.backandwhite.application.usecase;
 
-import com.backandwhite.api.dto.PaginationDtoOut;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderStats;
-import com.backandwhite.domain.valureobject.OrderStatus;
+import com.backandwhite.domain.valueobject.OrderStatus;
 
 import java.util.Map;
 
@@ -17,10 +17,10 @@ public interface OrderUseCase {
 
         Order findByOrderNumber(String orderNumber);
 
-        PaginationDtoOut<Order> findAll(Map<String, Object> filters, int page, int size, String sortBy,
+        PageResult<Order> findAll(Map<String, Object> filters, int page, int size, String sortBy,
                         boolean ascending);
 
-        PaginationDtoOut<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size,
+        PageResult<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size,
                         String sortBy,
                         boolean ascending);
 

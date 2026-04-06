@@ -1,6 +1,6 @@
 package com.backandwhite.api.dto.out;
 
-import com.backandwhite.domain.valureobject.TaxType;
+import com.backandwhite.domain.valueobject.TaxType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 

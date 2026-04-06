@@ -6,6 +6,8 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import com.backandwhite.application.port.out.CatalogPort;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +19,7 @@ import java.util.Optional;
  */
 @Log4j2
 @Component
-public class CatalogClient {
+public class CatalogClient implements CatalogPort {
 
     private final RestClient restClient;
 
@@ -27,17 +29,12 @@ public class CatalogClient {
     }
 
     /**
-     * Product verification info returned by the catalog.
-     */
-    public record ProductVerification(BigDecimal price, String categoryId, BigDecimal weight) {
-    }
-
-    /**
      * Fetches the actual sell price and category for a product/variant from the
      * catalog.
      * If variantId is provided, returns the variant's sell price.
      * Otherwise, returns the product's base sell price.
      */
+    @Override
     @SuppressWarnings("unchecked")
     public Optional<ProductVerification> getVerifiedPriceAndCategory(
             String productId, String variantId) {
@@ -97,6 +94,7 @@ public class CatalogClient {
      * @return available stock count, or -1 if the check failed (service
      *         unavailable)
      */
+    @Override
     public int getAvailableStock(String variantId) {
         try {
             Map<String, Object> result = restClient.get()

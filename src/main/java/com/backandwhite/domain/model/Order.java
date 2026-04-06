@@ -1,6 +1,6 @@
 package com.backandwhite.domain.model;
 
-import com.backandwhite.domain.valureobject.OrderStatus;
+import com.backandwhite.domain.valueobject.OrderStatus;
 import lombok.*;
 
 import java.math.BigDecimal;

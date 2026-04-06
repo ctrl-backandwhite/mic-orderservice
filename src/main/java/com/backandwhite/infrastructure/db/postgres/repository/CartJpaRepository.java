@@ -1,6 +1,6 @@
 package com.backandwhite.infrastructure.db.postgres.repository;
 
-import com.backandwhite.domain.valureobject.CartStatus;
+import com.backandwhite.domain.valueobject.CartStatus;
 import com.backandwhite.infrastructure.db.postgres.entity.CartEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 

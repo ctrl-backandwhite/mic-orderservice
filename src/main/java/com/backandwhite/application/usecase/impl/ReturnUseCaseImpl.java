@@ -1,17 +1,18 @@
 package com.backandwhite.application.usecase.impl;
 
-import com.backandwhite.api.dto.PaginationDtoOut;
-import com.backandwhite.api.util.PageableUtils;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.ReturnUseCase;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.ReturnRequest;
 import com.backandwhite.domain.repository.OrderRepository;
 import com.backandwhite.domain.repository.ReturnRepository;
-import com.backandwhite.domain.valureobject.OrderStatus;
-import com.backandwhite.domain.valureobject.ReturnStatus;
-import com.backandwhite.infrastructure.message.kafka.producer.OrderEventProducerService;
+import com.backandwhite.domain.valueobject.OrderStatus;
+import com.backandwhite.domain.valueobject.ReturnStatus;
+import com.backandwhite.application.port.out.OrderEventPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +20,6 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
 import static com.backandwhite.domain.exception.Message.RETURN_ORDER_NOT_DELIVERED;
@@ -33,7 +33,7 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
     private static final int RETURN_WINDOW_DAYS = 30;
     private final ReturnRepository returnRepository;
     private final OrderRepository orderRepository;
-    private final Optional<OrderEventProducerService> orderEventProducer;
+    private final OrderEventPort orderEventPort;
 
     @Override
     @Transactional
@@ -55,9 +55,9 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
         ReturnRequest saved = returnRepository.save(request);
 
         // Publish return requested event (L-09)
-        orderEventProducer.ifPresent(p -> p.publishOrderReturnRequested(
+        orderEventPort.publishOrderReturnRequested(
                 order.getId(), saved.getId(), order.getUserId(), null,
-                order.getOrderNumber(), request.getReason()));
+                order.getOrderNumber(), request.getReason());
 
         return saved;
     }
@@ -71,18 +71,20 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationDtoOut<ReturnRequest> findAll(Map<String, Object> filters, int page, int size, String sortBy,
+    public PageResult<ReturnRequest> findAll(Map<String, Object> filters, int page, int size, String sortBy,
             boolean ascending) {
-        var pageable = PageableUtils.toPageable(page, size, sortBy, ascending);
-        return PageableUtils.toResponse(returnRepository.findAll(filters, pageable));
+        var pageable = PageRequest.of(page, size,
+                ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+        return PageResult.from(returnRepository.findAll(filters, pageable));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationDtoOut<ReturnRequest> findByUserId(String userId, int page, int size, String sortBy,
+    public PageResult<ReturnRequest> findByUserId(String userId, int page, int size, String sortBy,
             boolean ascending) {
-        var pageable = PageableUtils.toPageable(page, size, sortBy, ascending);
-        return PageableUtils.toResponse(returnRepository.findByUserId(userId, pageable));
+        var pageable = PageRequest.of(page, size,
+                ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+        return PageResult.from(returnRepository.findByUserId(userId, pageable));
     }
 
     @Override
@@ -100,9 +102,9 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
             BigDecimal refundAmount = request.getRefundAmount() != null
                     ? request.getRefundAmount()
                     : (order != null ? order.getTotal() : BigDecimal.ZERO);
-            orderEventProducer.ifPresent(p -> p.publishOrderReturnApproved(
+            orderEventPort.publishOrderReturnApproved(
                     request.getOrderId(), updated.getId(), request.getUserId(), null,
-                    orderRef, refundAmount.toPlainString()));
+                    orderRef, refundAmount.toPlainString());
             log.info("Published order.return.approved for return={}, refundAmount={}",
                     updated.getId(), refundAmount);
         }

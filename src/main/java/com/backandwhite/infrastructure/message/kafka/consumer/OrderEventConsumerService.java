@@ -6,7 +6,7 @@ import com.backandwhite.core.kafka.avro.PaymentConfirmedEvent;
 import com.backandwhite.core.kafka.avro.PaymentFailedEvent;
 import com.backandwhite.core.kafka.avro.ShippingOrderDeliveredEvent;
 import com.backandwhite.core.kafka.avro.ShippingOrderShippedEvent;
-import com.backandwhite.domain.valureobject.OrderStatus;
+import com.backandwhite.domain.valueobject.OrderStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

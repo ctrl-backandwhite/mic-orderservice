@@ -1,4 +1,4 @@
-package com.backandwhite.domain.valureobject;
+package com.backandwhite.domain.valueobject;
 
 import java.util.Set;
 

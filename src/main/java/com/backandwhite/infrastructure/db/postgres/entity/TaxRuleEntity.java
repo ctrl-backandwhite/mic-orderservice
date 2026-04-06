@@ -1,7 +1,7 @@
 package com.backandwhite.infrastructure.db.postgres.entity;
 
 import com.backandwhite.common.infrastructure.entity.AuditableEntity;
-import com.backandwhite.domain.valureobject.TaxType;
+import com.backandwhite.domain.valueobject.TaxType;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;

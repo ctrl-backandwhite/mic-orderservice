@@ -6,6 +6,8 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import com.backandwhite.application.port.out.CmsPort;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collections;
@@ -18,7 +20,7 @@ import java.util.Map;
  */
 @Log4j2
 @Component
-public class CmsClient {
+public class CmsClient implements CmsPort {
 
     private final RestClient restClient;
 
@@ -32,6 +34,7 @@ public class CmsClient {
      *
      * @return list of active campaign data maps, or empty list if the call fails
      */
+    @Override
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getActiveCampaigns() {
         try {
@@ -58,6 +61,7 @@ public class CmsClient {
      * @param basePrice  the product's base sell price
      * @return the discount amount to subtract from the base price
      */
+    @Override
     @SuppressWarnings("unchecked")
     public BigDecimal calculateBestCampaignDiscount(
             List<Map<String, Object>> campaigns,

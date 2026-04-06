@@ -1,6 +1,6 @@
 package com.backandwhite.application.usecase;
 
-import com.backandwhite.api.dto.PaginationDtoOut;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.domain.model.Coupon;
 
 import java.math.BigDecimal;
@@ -13,7 +13,7 @@ public interface CouponUseCase {
 
     Coupon findById(String id);
 
-    PaginationDtoOut<Coupon> findAll(Map<String, Object> filters, int page, int size, String sortBy, boolean ascending);
+    PageResult<Coupon> findAll(Map<String, Object> filters, int page, int size, String sortBy, boolean ascending);
 
     void delete(String id);
 

@@ -1,0 +1,75 @@
+package com.backandwhite.infrastructure.message.kafka.producer;
+
+import com.backandwhite.application.port.out.OrderEventPort;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
+
+@Component
+@ConditionalOnProperty(name = "spring.kafka.enabled", havingValue = "false", matchIfMissing = true)
+public class NoOpOrderEventAdapter implements OrderEventPort {
+
+    @Override
+    public void publishOrderCreated(String orderId, String userId, String email,
+            String orderReference, String totalAmount,
+            String status, int itemCount, String shippingAddressId) {
+    }
+
+    @Override
+    public void publishOrderConfirmed(String orderId, String userId, String email,
+            String orderReference, String totalAmount, int itemCount) {
+    }
+
+    @Override
+    public void publishOrderStatusUpdated(String orderId, String userId, String email,
+            String orderReference, String previousStatus, String newStatus) {
+    }
+
+    @Override
+    public void publishOrderCancelled(String orderId, String userId, String email,
+            String orderReference, String reason) {
+    }
+
+    @Override
+    public void publishOrderShipped(String orderId, String userId, String email,
+            String orderReference, String trackingNumber,
+            String carrier, String estimatedDelivery) {
+    }
+
+    @Override
+    public void publishOrderDelivered(String orderId, String userId, String email,
+            String orderReference, String totalAmount) {
+    }
+
+    @Override
+    public void publishOrderReturnRequested(String orderId, String returnRequestId,
+            String userId, String email,
+            String orderReference, String reason) {
+    }
+
+    @Override
+    public void publishOrderReturnApproved(String orderId, String returnRequestId,
+            String userId, String email,
+            String orderReference, String refundAmount) {
+    }
+
+    @Override
+    public void publishCartAbandoned(String cartId, String userId, String email,
+            String totalAmount, int itemCount, String lastActivityAt) {
+    }
+
+    @Override
+    public void publishCartCheckoutInitiated(String cartId, String orderId, String userId,
+            String email, String totalAmount, int itemCount,
+            String couponCode, String shippingAddressId) {
+    }
+
+    @Override
+    public void publishStockReservation(String productId, String variantId,
+            String orderId, int quantity) {
+    }
+
+    @Override
+    public void publishStockDeducted(String productId, String variantId,
+            String orderId, int quantity) {
+    }
+}

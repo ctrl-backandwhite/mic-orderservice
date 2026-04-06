@@ -1,7 +1,6 @@
 package com.backandwhite.application.usecase.impl;
 
-import com.backandwhite.api.dto.PaginationDtoOut;
-import com.backandwhite.api.util.PageableUtils;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.CouponUseCase;
 import com.backandwhite.application.usecase.InvoiceUseCase;
 import com.backandwhite.application.usecase.OrderUseCase;
@@ -9,16 +8,18 @@ import com.backandwhite.application.usecase.ShippingTaxUseCase;
 import com.backandwhite.domain.model.*;
 import com.backandwhite.domain.repository.CartRepository;
 import com.backandwhite.domain.repository.OrderRepository;
-import com.backandwhite.domain.valureobject.CartStatus;
-import com.backandwhite.domain.valureobject.CouponType;
-import com.backandwhite.domain.valureobject.InvoiceStatus;
-import com.backandwhite.domain.valureobject.OrderStatus;
-import com.backandwhite.infrastructure.client.CatalogClient;
-import com.backandwhite.infrastructure.client.CatalogClient.ProductVerification;
-import com.backandwhite.infrastructure.client.CmsClient;
-import com.backandwhite.infrastructure.message.kafka.producer.OrderEventProducerService;
+import com.backandwhite.domain.valueobject.CartStatus;
+import com.backandwhite.domain.valueobject.CouponType;
+import com.backandwhite.domain.valueobject.InvoiceStatus;
+import com.backandwhite.domain.valueobject.OrderStatus;
+import com.backandwhite.application.port.out.CatalogPort;
+import com.backandwhite.application.port.out.CatalogPort.ProductVerification;
+import com.backandwhite.application.port.out.CmsPort;
+import com.backandwhite.application.port.out.OrderEventPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,9 +43,9 @@ public class OrderUseCaseImpl implements OrderUseCase {
     private final CouponUseCase couponUseCase;
     private final ShippingTaxUseCase shippingTaxUseCase;
     private final InvoiceUseCase invoiceUseCase;
-    private final CatalogClient catalogClient;
-    private final CmsClient cmsClient;
-    private final Optional<OrderEventProducerService> orderEventProducer;
+    private final CatalogPort catalogClient;
+    private final CmsPort cmsClient;
+    private final OrderEventPort orderEventPort;
 
     @Override
     @Transactional
@@ -243,23 +244,21 @@ public class OrderUseCaseImpl implements OrderUseCase {
         orderRepository.addStatusHistory(history);
 
         // Publish order.created event
-        orderEventProducer.ifPresent(p -> p.publishOrderCreated(
+        orderEventPort.publishOrderCreated(
                 confirmed.getId(), userId, null, confirmed.getOrderNumber(),
                 confirmed.getTotal().toPlainString(), confirmed.getStatus().name(),
-                confirmed.getItems().size(), null));
+                confirmed.getItems().size(), null);
 
         // Deduct stock for each item via Kafka
-        orderEventProducer.ifPresent(producer -> {
-            for (OrderItem oi : confirmed.getItems()) {
-                if (oi.getVariantId() != null && !oi.getVariantId().isBlank()) {
-                    producer.publishStockDeducted(
-                            oi.getProductId(),
-                            oi.getVariantId(),
-                            confirmed.getId(),
-                            oi.getQuantity());
-                }
+        for (OrderItem oi : confirmed.getItems()) {
+            if (oi.getVariantId() != null && !oi.getVariantId().isBlank()) {
+                orderEventPort.publishStockDeducted(
+                        oi.getProductId(),
+                        oi.getVariantId(),
+                        confirmed.getId(),
+                        oi.getQuantity());
             }
-        });
+        }
 
         // Auto-create invoice
         try {
@@ -325,18 +324,20 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationDtoOut<Order> findAll(Map<String, Object> filters, int page, int size, String sortBy,
+    public PageResult<Order> findAll(Map<String, Object> filters, int page, int size, String sortBy,
             boolean ascending) {
-        var pageable = PageableUtils.toPageable(page, size, sortBy, ascending);
-        return PageableUtils.toResponse(orderRepository.findAll(filters, pageable));
+        var pageable = PageRequest.of(page, size,
+                ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+        return PageResult.from(orderRepository.findAll(filters, pageable));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationDtoOut<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size,
+    public PageResult<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size,
             String sortBy, boolean ascending) {
-        var pageable = PageableUtils.toPageable(page, size, sortBy, ascending);
-        return PageableUtils.toResponse(orderRepository.findByUserId(userId, filters, pageable));
+        var pageable = PageRequest.of(page, size,
+                ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+        return PageResult.from(orderRepository.findByUserId(userId, filters, pageable));
     }
 
     @Override
@@ -364,10 +365,10 @@ public class OrderUseCaseImpl implements OrderUseCase {
         Order updated = orderRepository.update(order);
 
         // Publish order status event
-        orderEventProducer.ifPresent(p -> p.publishOrderStatusUpdated(
+        orderEventPort.publishOrderStatusUpdated(
                 updated.getId(), updated.getUserId(), null,
                 updated.getOrderNumber(),
-                history.getFromStatus(), newStatus.name()));
+                history.getFromStatus(), newStatus.name());
 
         return updated;
     }
@@ -397,9 +398,9 @@ public class OrderUseCaseImpl implements OrderUseCase {
         Order cancelled = orderRepository.update(order);
 
         // Publish order.cancelled event
-        orderEventProducer.ifPresent(p -> p.publishOrderCancelled(
+        orderEventPort.publishOrderCancelled(
                 cancelled.getId(), userId, null,
-                cancelled.getOrderNumber(), reason));
+                cancelled.getOrderNumber(), reason);
 
         return cancelled;
     }

@@ -3,7 +3,7 @@ package com.backandwhite.application.usecase;
 import com.backandwhite.domain.model.ShippingCarrier;
 import com.backandwhite.domain.model.ShippingRule;
 import com.backandwhite.domain.model.TaxRule;
-import com.backandwhite.api.dto.PaginationDtoOut;
+import com.backandwhite.common.domain.model.PageResult;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -17,7 +17,7 @@ public interface ShippingTaxUseCase {
 
     ShippingCarrier findCarrierById(String id);
 
-    PaginationDtoOut<ShippingCarrier> findAllCarriers(int page, int size, String sortBy, boolean ascending);
+    PageResult<ShippingCarrier> findAllCarriers(int page, int size, String sortBy, boolean ascending);
 
     void deleteCarrier(String id);
 
@@ -28,7 +28,7 @@ public interface ShippingTaxUseCase {
 
     ShippingRule findRuleById(String id);
 
-    PaginationDtoOut<ShippingRule> findAllRules(int page, int size, String sortBy, boolean ascending);
+    PageResult<ShippingRule> findAllRules(int page, int size, String sortBy, boolean ascending);
 
     List<ShippingRule> findShippingOptions(String country, BigDecimal weight, BigDecimal subtotal);
 
@@ -41,7 +41,7 @@ public interface ShippingTaxUseCase {
 
     TaxRule findTaxRuleById(String id);
 
-    PaginationDtoOut<TaxRule> findAllTaxRules(int page, int size, String sortBy, boolean ascending);
+    PageResult<TaxRule> findAllTaxRules(int page, int size, String sortBy, boolean ascending);
 
     BigDecimal calculateTax(String country, String region, BigDecimal subtotal);
 

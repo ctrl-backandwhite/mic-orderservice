@@ -1,6 +1,6 @@
 package com.backandwhite.domain.model;
 
-import com.backandwhite.domain.valureobject.CouponType;
+import com.backandwhite.domain.valueobject.CouponType;
 import lombok.*;
 
 import java.math.BigDecimal;

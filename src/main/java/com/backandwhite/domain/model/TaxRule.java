@@ -1,6 +1,6 @@
 package com.backandwhite.domain.model;
 
-import com.backandwhite.domain.valureobject.TaxType;
+import com.backandwhite.domain.valueobject.TaxType;
 import lombok.*;
 
 import java.math.BigDecimal;

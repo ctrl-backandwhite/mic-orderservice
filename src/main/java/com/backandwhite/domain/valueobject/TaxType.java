@@ -1,4 +1,4 @@
-package com.backandwhite.domain.valureobject;
+package com.backandwhite.domain.valueobject;
 
 public enum TaxType {
     VAT, SALES, GST, PERCENTAGE, FIXED

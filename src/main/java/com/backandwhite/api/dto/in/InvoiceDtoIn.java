@@ -1,6 +1,6 @@
 package com.backandwhite.api.dto.in;
 
-import com.backandwhite.domain.valureobject.InvoiceStatus;
+import com.backandwhite.domain.valueobject.InvoiceStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

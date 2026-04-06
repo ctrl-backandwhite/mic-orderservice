@@ -1,7 +1,6 @@
 package com.backandwhite.application.usecase.impl;
 
-import com.backandwhite.api.dto.PaginationDtoOut;
-import com.backandwhite.api.util.PageableUtils;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.ShippingTaxUseCase;
 import com.backandwhite.domain.model.ShippingCarrier;
 import com.backandwhite.domain.model.ShippingRule;
@@ -11,6 +10,8 @@ import com.backandwhite.domain.repository.ShippingRuleRepository;
 import com.backandwhite.domain.repository.TaxRuleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,9 +56,10 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationDtoOut<ShippingCarrier> findAllCarriers(int page, int size, String sortBy, boolean ascending) {
-        var pageable = PageableUtils.toPageable(page, size, sortBy, ascending);
-        return PageableUtils.toResponse(carrierRepository.findAll(Map.of(), pageable));
+    public PageResult<ShippingCarrier> findAllCarriers(int page, int size, String sortBy, boolean ascending) {
+        var pageable = PageRequest.of(page, size,
+                ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+        return PageResult.from(carrierRepository.findAll(Map.of(), pageable));
     }
 
     @Override
@@ -93,9 +95,10 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationDtoOut<ShippingRule> findAllRules(int page, int size, String sortBy, boolean ascending) {
-        var pageable = PageableUtils.toPageable(page, size, sortBy, ascending);
-        return PageableUtils.toResponse(ruleRepository.findAll(Map.of(), pageable));
+    public PageResult<ShippingRule> findAllRules(int page, int size, String sortBy, boolean ascending) {
+        var pageable = PageRequest.of(page, size,
+                ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+        return PageResult.from(ruleRepository.findAll(Map.of(), pageable));
     }
 
     @Override
@@ -137,9 +140,10 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationDtoOut<TaxRule> findAllTaxRules(int page, int size, String sortBy, boolean ascending) {
-        var pageable = PageableUtils.toPageable(page, size, sortBy, ascending);
-        return PageableUtils.toResponse(taxRuleRepository.findAll(Map.of(), pageable));
+    public PageResult<TaxRule> findAllTaxRules(int page, int size, String sortBy, boolean ascending) {
+        var pageable = PageRequest.of(page, size,
+                ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+        return PageResult.from(taxRuleRepository.findAll(Map.of(), pageable));
     }
 
     private static final BigDecimal DEFAULT_TAX_RATE = new BigDecimal("0.10");
@@ -171,7 +175,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
 
         // 4. Respect TaxType: FIXED uses rate as flat amount, everything else as
         // percentage
-        if (bestRule.getType() == com.backandwhite.domain.valureobject.TaxType.FIXED) {
+        if (bestRule.getType() == com.backandwhite.domain.valueobject.TaxType.FIXED) {
             return bestRule.getRate().setScale(2, RoundingMode.HALF_UP);
         }
 

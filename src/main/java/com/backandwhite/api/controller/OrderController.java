@@ -7,7 +7,8 @@ import com.backandwhite.api.dto.in.UpdateOrderStatusDtoIn;
 import com.backandwhite.api.dto.out.OrderDtoOut;
 import com.backandwhite.api.dto.out.OrderStatsDtoOut;
 import com.backandwhite.api.mapper.OrderApiMapper;
-import com.backandwhite.api.util.PaginationMapper;
+import com.backandwhite.api.util.PageableUtils;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.OrderUseCase;
 import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.common.security.annotation.NxAdmin;
@@ -58,8 +59,8 @@ public class OrderController {
         Map<String, Object> filters = new HashMap<>();
         if (status != null)
             filters.put("status", status);
-        PaginationDtoOut<Order> result = orderUseCase.findByUserId(userId, filters, page, size, sortBy, ascending);
-        return ResponseEntity.ok(PaginationMapper.map(result, orderApiMapper::toDto));
+        PageResult<Order> result = orderUseCase.findByUserId(userId, filters, page, size, sortBy, ascending);
+        return ResponseEntity.ok(PageableUtils.toResponse(result, orderApiMapper::toDto));
     }
 
     @GetMapping("/me/{id}")
@@ -112,8 +113,8 @@ public class OrderController {
             filters.put("userId", userId);
         if (search != null)
             filters.put("search", search);
-        PaginationDtoOut<Order> result = orderUseCase.findAll(filters, page, size, sortBy, ascending);
-        return ResponseEntity.ok(PaginationMapper.map(result, orderApiMapper::toDto));
+        PageResult<Order> result = orderUseCase.findAll(filters, page, size, sortBy, ascending);
+        return ResponseEntity.ok(PageableUtils.toResponse(result, orderApiMapper::toDto));
     }
 
     @GetMapping("/{id}")

@@ -1,5 +1,6 @@
 package com.backandwhite.infrastructure.message.kafka.producer;
 
+import com.backandwhite.application.port.out.OrderEventPort;
 import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.core.kafka.avro.*;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,7 @@ import java.time.Instant;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "spring.kafka.enabled", havingValue = "true")
-public class OrderEventProducerService {
+public class KafkaOrderEventAdapter implements OrderEventPort {
 
         private final KafkaTemplate<String, SpecificRecord> kafkaTemplate;
 
@@ -24,7 +25,7 @@ public class OrderEventProducerService {
         public void publishOrderCreated(String orderId, String userId, String email,
                         String orderReference, String totalAmount,
                         String status, int itemCount, String shippingAddressId) {
-                var event = OrderCreatedEvent.newBuilder()
+                OrderCreatedEvent event = OrderCreatedEvent.newBuilder()
                                 .setOrderId(orderId)
                                 .setUserId(userId)
                                 .setEmail(email)
@@ -41,7 +42,7 @@ public class OrderEventProducerService {
 
         public void publishOrderConfirmed(String orderId, String userId, String email,
                         String orderReference, String totalAmount, int itemCount) {
-                var event = OrderConfirmedEvent.newBuilder()
+                OrderConfirmedEvent event = OrderConfirmedEvent.newBuilder()
                                 .setOrderId(orderId)
                                 .setUserId(userId)
                                 .setEmail(email)
@@ -57,7 +58,7 @@ public class OrderEventProducerService {
         public void publishOrderStatusUpdated(String orderId, String userId, String email,
                         String orderReference, String previousStatus,
                         String newStatus) {
-                var event = OrderStatusUpdatedEvent.newBuilder()
+                OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder()
                                 .setOrderId(orderId)
                                 .setUserId(userId)
                                 .setEmail(email)
@@ -71,7 +72,7 @@ public class OrderEventProducerService {
 
         public void publishOrderCancelled(String orderId, String userId, String email,
                         String orderReference, String reason) {
-                var event = OrderCancelledEvent.newBuilder()
+                OrderCancelledEvent event = OrderCancelledEvent.newBuilder()
                                 .setOrderId(orderId)
                                 .setUserId(userId)
                                 .setEmail(email)
@@ -85,7 +86,7 @@ public class OrderEventProducerService {
         public void publishOrderShipped(String orderId, String userId, String email,
                         String orderReference, String trackingNumber,
                         String carrier, String estimatedDelivery) {
-                var event = OrderShippedEvent.newBuilder()
+                OrderShippedEvent event = OrderShippedEvent.newBuilder()
                                 .setOrderId(orderId)
                                 .setUserId(userId)
                                 .setEmail(email)
@@ -100,7 +101,7 @@ public class OrderEventProducerService {
 
         public void publishOrderDelivered(String orderId, String userId, String email,
                         String orderReference, String totalAmount) {
-                var event = OrderDeliveredEvent.newBuilder()
+                OrderDeliveredEvent event = OrderDeliveredEvent.newBuilder()
                                 .setOrderId(orderId)
                                 .setUserId(userId)
                                 .setEmail(email)
@@ -114,7 +115,7 @@ public class OrderEventProducerService {
         public void publishOrderReturnRequested(String orderId, String returnRequestId,
                         String userId, String email,
                         String orderReference, String reason) {
-                var event = OrderReturnRequestedEvent.newBuilder()
+                OrderReturnRequestedEvent event = OrderReturnRequestedEvent.newBuilder()
                                 .setOrderId(orderId)
                                 .setReturnRequestId(returnRequestId)
                                 .setUserId(userId)
@@ -129,7 +130,7 @@ public class OrderEventProducerService {
         public void publishOrderReturnApproved(String orderId, String returnRequestId,
                         String userId, String email,
                         String orderReference, String refundAmount) {
-                var event = OrderReturnApprovedEvent.newBuilder()
+                OrderReturnApprovedEvent event = OrderReturnApprovedEvent.newBuilder()
                                 .setOrderId(orderId)
                                 .setReturnRequestId(returnRequestId)
                                 .setUserId(userId)
@@ -145,7 +146,7 @@ public class OrderEventProducerService {
 
         public void publishCartAbandoned(String cartId, String userId, String email,
                         String totalAmount, int itemCount, String lastActivityAt) {
-                var event = CartAbandonedEvent.newBuilder()
+                CartAbandonedEvent event = CartAbandonedEvent.newBuilder()
                                 .setCartId(cartId)
                                 .setUserId(userId != null ? userId : "anonymous")
                                 .setEmail(email)
@@ -160,7 +161,7 @@ public class OrderEventProducerService {
         public void publishCartCheckoutInitiated(String cartId, String orderId, String userId,
                         String email, String totalAmount, int itemCount,
                         String couponCode, String shippingAddressId) {
-                var event = CartCheckoutInitiatedEvent.newBuilder()
+                CartCheckoutInitiatedEvent event = CartCheckoutInitiatedEvent.newBuilder()
                                 .setCartId(cartId)
                                 .setOrderId(orderId)
                                 .setUserId(userId)
@@ -179,7 +180,7 @@ public class OrderEventProducerService {
 
         public void publishStockReservation(String productId, String variantId,
                         String orderId, int quantity) {
-                var event = StockReservedEvent.newBuilder()
+                StockReservedEvent event = StockReservedEvent.newBuilder()
                                 .setProductId(productId)
                                 .setVariantId(variantId)
                                 .setOrderId(orderId)
@@ -192,7 +193,7 @@ public class OrderEventProducerService {
 
         public void publishStockDeducted(String productId, String variantId,
                         String orderId, int quantity) {
-                var event = StockDeductedEvent.newBuilder()
+                StockDeductedEvent event = StockDeductedEvent.newBuilder()
                                 .setProductId(productId)
                                 .setVariantId(variantId)
                                 .setOrderId(orderId)

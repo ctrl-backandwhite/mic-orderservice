@@ -4,7 +4,7 @@ import com.backandwhite.application.usecase.CartUseCase;
 import com.backandwhite.domain.model.Cart;
 import com.backandwhite.domain.model.CartItem;
 import com.backandwhite.domain.repository.CartRepository;
-import com.backandwhite.domain.valureobject.CartStatus;
+import com.backandwhite.domain.valueobject.CartStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;

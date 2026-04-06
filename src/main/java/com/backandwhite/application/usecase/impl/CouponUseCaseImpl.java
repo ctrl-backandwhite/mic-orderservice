@@ -1,14 +1,15 @@
 package com.backandwhite.application.usecase.impl;
 
-import com.backandwhite.api.dto.PaginationDtoOut;
-import com.backandwhite.api.util.PageableUtils;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.CouponUseCase;
 import com.backandwhite.domain.model.Coupon;
 import com.backandwhite.domain.model.CouponUsage;
 import com.backandwhite.domain.repository.CouponRepository;
-import com.backandwhite.domain.valureobject.CouponType;
+import com.backandwhite.domain.valueobject.CouponType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,10 +52,11 @@ public class CouponUseCaseImpl implements CouponUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public PaginationDtoOut<Coupon> findAll(Map<String, Object> filters, int page, int size, String sortBy,
+    public PageResult<Coupon> findAll(Map<String, Object> filters, int page, int size, String sortBy,
             boolean ascending) {
-        var pageable = PageableUtils.toPageable(page, size, sortBy, ascending);
-        return PageableUtils.toResponse(couponRepository.findAll(filters, pageable));
+        var pageable = PageRequest.of(page, size,
+                ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+        return PageResult.from(couponRepository.findAll(filters, pageable));
     }
 
     @Override

@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,7 +37,7 @@ public class OrderRepositoryImpl implements OrderRepository {
         OrderEntity entity = mapper.toEntity(order);
 
         if (order.getItems() != null) {
-            var itemEntities = order.getItems().stream().map(item -> {
+            List<OrderItemEntity> itemEntities = order.getItems().stream().map(item -> {
                 OrderItemEntity ie = mapper.toItemEntity(item);
                 ie.setId(UUID.randomUUID().toString());
                 ie.setOrder(entity);

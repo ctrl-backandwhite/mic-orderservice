@@ -1,6 +1,6 @@
 package com.backandwhite.domain.model;
 
-import com.backandwhite.domain.valureobject.CartStatus;
+import com.backandwhite.domain.valueobject.CartStatus;
 import lombok.*;
 
 import java.math.BigDecimal;

@@ -1,6 +1,7 @@
 package com.backandwhite.infrastructure.db.postgres.specification;
 
 import com.backandwhite.infrastructure.db.postgres.entity.OrderEntity;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.Map;
@@ -12,11 +13,11 @@ public class OrderSpecification {
 
     public static Specification<OrderEntity> withFilters(Map<String, Object> filters) {
         return (root, query, cb) -> {
-            var predicate = cb.conjunction();
+            Predicate predicate = cb.conjunction();
 
             if (filters.containsKey("status")) {
                 predicate = cb.and(predicate, cb.equal(root.get("status"),
-                        com.backandwhite.domain.valureobject.OrderStatus.valueOf(filters.get("status").toString())));
+                        com.backandwhite.domain.valueobject.OrderStatus.valueOf(filters.get("status").toString())));
             }
             if (filters.containsKey("userId")) {
                 predicate = cb.and(predicate, cb.equal(root.get("userId"), filters.get("userId").toString()));

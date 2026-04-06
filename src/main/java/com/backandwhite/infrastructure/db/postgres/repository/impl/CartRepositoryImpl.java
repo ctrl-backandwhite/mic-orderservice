@@ -3,7 +3,7 @@ package com.backandwhite.infrastructure.db.postgres.repository.impl;
 import com.backandwhite.domain.model.Cart;
 import com.backandwhite.domain.model.CartItem;
 import com.backandwhite.domain.repository.CartRepository;
-import com.backandwhite.domain.valureobject.CartStatus;
+import com.backandwhite.domain.valueobject.CartStatus;
 import com.backandwhite.infrastructure.db.postgres.entity.CartEntity;
 import com.backandwhite.infrastructure.db.postgres.entity.CartItemEntity;
 import com.backandwhite.infrastructure.db.postgres.mapper.CartInfraMapper;
@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -101,7 +102,7 @@ public class CartRepositoryImpl implements CartRepository {
 
     private Cart enrichCart(CartEntity entity) {
         Cart cart = mapper.toDomain(entity);
-        var items = cart.getItems() != null ? cart.getItems() : java.util.List.<CartItem>of();
+        List<CartItem> items = cart.getItems() != null ? cart.getItems() : java.util.List.<CartItem>of();
         BigDecimal subtotal = items.stream()
                 .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
