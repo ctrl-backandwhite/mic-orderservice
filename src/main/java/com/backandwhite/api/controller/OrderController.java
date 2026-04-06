@@ -1,4 +1,5 @@
 package com.backandwhite.api.controller;
+
 import com.backandwhite.api.dto.PaginationDtoOut;
 import com.backandwhite.api.dto.in.CancelOrderDtoIn;
 import com.backandwhite.api.dto.in.CreateOrderDtoIn;
@@ -27,104 +28,118 @@ import java.util.Map;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/orders")
-@Tag(name = "Orders",description = "Endpointsparagestióndepedidos")
+@Tag(name = "Orders", description = "Endpointsparagestióndepedidos")
 public class OrderController {
-private final OrderUseCase orderUseCase;
-private final OrderApiMapper orderApiMapper;
+    private final OrderUseCase orderUseCase;
+    private final OrderApiMapper orderApiMapper;
 
     @PostMapping
-    @Operation(summary = "Crearpedido",description = "Creaunpedidoapartirdelcarritoactivodelusuario")
-public ResponseEntity<OrderDtoOut> createOrder(
+    @Operation(summary = "Crearpedido", description = "Creaunpedidoapartirdelcarritoactivodelusuario")
+    public ResponseEntity<OrderDtoOut> createOrder(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelusuario") @RequestHeader("X-Auth-Subject") String userId,
-            @Parameter(description = "SessionID") @RequestHeader(value = "X-Session-Id",required =false) String sessionId,
+            @Parameter(description = "SessionID") @RequestHeader(value = "X-Session-Id", required = false) String sessionId,
             @Valid @RequestBody CreateOrderDtoIn dto) {
-Order order =orderUseCase.createFromCart(userId,sessionId,dto.getShippingAddress(),dto.getBillingAddress(),dto.getPaymentMethod(),dto.getCouponCode(),dto.getNotes());
-return ResponseEntity.status(HttpStatus.CREATED).body(orderApiMapper.toDto(order));
+        Order order = orderUseCase.createFromCart(userId, sessionId, dto.getShippingAddress(), dto.getBillingAddress(),
+                dto.getPaymentMethod(), dto.getCouponCode(), dto.getNotes());
+        return ResponseEntity.status(HttpStatus.CREATED).body(orderApiMapper.toDto(order));
     }
 
     @GetMapping("/me")
-    @Operation(summary = "Mispedidos",description = "Listalospedidosdelusuarioautenticado")
-public ResponseEntity<PaginationDtoOut<OrderDtoOut>> getMyOrders(
+    @Operation(summary = "Mispedidos", description = "Listalospedidosdelusuarioautenticado")
+    public ResponseEntity<PaginationDtoOut<OrderDtoOut>> getMyOrders(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelusuario") @RequestHeader("X-Auth-Subject") String userId,
-            @Parameter(description = "Filtrarporestado") @RequestParam(required =false) String status,
+            @Parameter(description = "Filtrarporestado") @RequestParam(required = false) String status,
             @Parameter(description = "Página") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Tamaño") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "Campodeorden") @RequestParam(defaultValue = "createdAt") String sortBy,
             @Parameter(description = "Ascendente") @RequestParam(defaultValue = "false") boolean ascending) {
-Map<String,Object> filters = new HashMap<>();
-if (status != null)filters.put("status",status);
-PaginationDtoOut<Order> result =orderUseCase.findByUserId(userId,filters,page,size,sortBy,ascending);
-return ResponseEntity.ok(PaginationMapper.map(result,orderApiMapper::toDto));
+        Map<String, Object> filters = new HashMap<>();
+        if (status != null)
+            filters.put("status", status);
+        PaginationDtoOut<Order> result = orderUseCase.findByUserId(userId, filters, page, size, sortBy, ascending);
+        return ResponseEntity.ok(PaginationMapper.map(result, orderApiMapper::toDto));
     }
 
     @GetMapping("/me/{id}")
-    @Operation(summary = "Detalledemipedido",description = "Obtieneeldetalledeunpedidodelusuario")
-public ResponseEntity<OrderDtoOut> getMyOrder(
+    @Operation(summary = "Detalledemipedido", description = "Obtieneeldetalledeunpedidodelusuario")
+    public ResponseEntity<OrderDtoOut> getMyOrder(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelpedido") @PathVariable String id) {
-Order order =orderUseCase.findById(id);
-return ResponseEntity.ok(orderApiMapper.toDto(order));
+        Order order = orderUseCase.findById(id);
+        return ResponseEntity.ok(orderApiMapper.toDto(order));
     }
 
     @PostMapping("/me/{id}/cancel")
-    @Operation(summary = "Cancelarpedido",description = "Cancelaunpedidodelusuario (solosiestáenPENDINGoCONFIRMED)")
-public ResponseEntity<OrderDtoOut> cancelOrder(
+    @Operation(summary = "Cancelarpedido", description = "Cancelaunpedidodelusuario (solosiestáenPENDINGoCONFIRMED)")
+    public ResponseEntity<OrderDtoOut> cancelOrder(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelusuario") @RequestHeader("X-Auth-Subject") String userId,
             @Parameter(description = "IDdelpedido") @PathVariable String id,
-            @RequestBody(required =false)CancelOrderDtoIn dto) {
-String reason =dto != null ?dto.getReason() :null;
-Order cancelled =orderUseCase.cancel(id,userId,reason);
-return ResponseEntity.ok(orderApiMapper.toDto(cancelled));
+            @RequestBody(required = false) CancelOrderDtoIn dto) {
+        String reason = dto != null ? dto.getReason() : null;
+        Order cancelled = orderUseCase.cancel(id, userId, reason);
+        return ResponseEntity.ok(orderApiMapper.toDto(cancelled));
     }
 
+    @PostMapping("/me/{id}/confirm")
+    @Operation(summary = "Confirmar pedido tras pago", description = "Transiciona orden DRAFT→PENDING, deduce stock, crea factura")
+    public ResponseEntity<OrderDtoOut> confirmOrder(
+            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+            @Parameter(description = "ID del usuario") @RequestHeader("X-Auth-Subject") String userId,
+            @Parameter(description = "ID del pedido") @PathVariable String id) {
+        Order confirmed = orderUseCase.confirmOrder(id, userId);
+        return ResponseEntity.ok(orderApiMapper.toDto(confirmed));
+    }
     // ──Adminendpoints ──────────────────────────────────────────────────
 
     @GetMapping
-    @Operation(summary = "[Admin]Listarpedidos",description = "Listatodoslospedidosconfiltros")
-public ResponseEntity<PaginationDtoOut<OrderDtoOut>> findAll(
+    @Operation(summary = "[Admin]Listarpedidos", description = "Listatodoslospedidosconfiltros")
+    public ResponseEntity<PaginationDtoOut<OrderDtoOut>> findAll(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
-            @Parameter(description = "Filtrarporestado") @RequestParam(required =false) String status,
-            @Parameter(description = "Filtrarporusuario") @RequestParam(required =false) String userId,
-            @Parameter(description = "Buscarpornúmerodepedido") @RequestParam(required =false) String search,
+            @Parameter(description = "Filtrarporestado") @RequestParam(required = false) String status,
+            @Parameter(description = "Filtrarporusuario") @RequestParam(required = false) String userId,
+            @Parameter(description = "Buscarpornúmerodepedido") @RequestParam(required = false) String search,
             @Parameter(description = "Página") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Tamaño") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "Campodeorden") @RequestParam(defaultValue = "createdAt") String sortBy,
             @Parameter(description = "Ascendente") @RequestParam(defaultValue = "false") boolean ascending) {
-Map<String,Object> filters = new HashMap<>();
-if (status != null)filters.put("status",status);
-if (userId != null)filters.put("userId",userId);
-if (search != null)filters.put("search",search);
-PaginationDtoOut<Order> result =orderUseCase.findAll(filters,page,size,sortBy,ascending);
-return ResponseEntity.ok(PaginationMapper.map(result,orderApiMapper::toDto));
+        Map<String, Object> filters = new HashMap<>();
+        if (status != null)
+            filters.put("status", status);
+        if (userId != null)
+            filters.put("userId", userId);
+        if (search != null)
+            filters.put("search", search);
+        PaginationDtoOut<Order> result = orderUseCase.findAll(filters, page, size, sortBy, ascending);
+        return ResponseEntity.ok(PaginationMapper.map(result, orderApiMapper::toDto));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "[Admin]Detalledepedido",description = "Obtieneeldetallecompletodeunpedido")
-public ResponseEntity<OrderDtoOut> getById(
+    @Operation(summary = "[Admin]Detalledepedido", description = "Obtieneeldetallecompletodeunpedido")
+    public ResponseEntity<OrderDtoOut> getById(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelpedido") @PathVariable String id) {
-Order order =orderUseCase.findById(id);
-return ResponseEntity.ok(orderApiMapper.toDto(order));
+        Order order = orderUseCase.findById(id);
+        return ResponseEntity.ok(orderApiMapper.toDto(order));
     }
 
     @PatchMapping("/{id}/status")
-    @Operation(summary = "[Admin]Cambiarestado",description = "Cambiaelestadodeunpedidosiguiendolamáquinadeestados")
-public ResponseEntity<OrderDtoOut> updateStatus(
+    @Operation(summary = "[Admin]Cambiarestado", description = "Cambiaelestadodeunpedidosiguiendolamáquinadeestados")
+    public ResponseEntity<OrderDtoOut> updateStatus(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelpedido") @PathVariable String id,
             @Valid @RequestBody UpdateOrderStatusDtoIn dto) {
-Order updated =orderUseCase.updateStatus(id,dto.getStatus(),dto.getChangedBy(),dto.getReason());
-return ResponseEntity.ok(orderApiMapper.toDto(updated));
+        Order updated = orderUseCase.updateStatus(id, dto.getStatus(), dto.getChangedBy(), dto.getReason());
+        return ResponseEntity.ok(orderApiMapper.toDto(updated));
     }
 
     @GetMapping("/stats")
-    @Operation(summary = "[Admin]Estadísticas",description = "Devuelveestadísticasagregadasdepedidos")
-public ResponseEntity<OrderStatsDtoOut> getStats(
+    @Operation(summary = "[Admin]Estadísticas", description = "Devuelveestadísticasagregadasdepedidos")
+    public ResponseEntity<OrderStatsDtoOut> getStats(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth) {
-OrderStats stats =orderUseCase.getStats();
-return ResponseEntity.ok(orderApiMapper.toStatsDto(stats));
+        OrderStats stats = orderUseCase.getStats();
+        return ResponseEntity.ok(orderApiMapper.toStatsDto(stats));
     }
 }

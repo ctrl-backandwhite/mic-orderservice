@@ -18,7 +18,10 @@ public enum Message {
     COUPON_NOT_YET_VALID("CO006", "Coupon is not yet valid"),
     RETURN_WINDOW_EXPIRED("RE001", "Return window of %d days has expired"),
     RETURN_ORDER_NOT_DELIVERED("RE002", "Can only request returns for delivered orders"),
-    MAX_ADDRESSES_REACHED("AD001", "Maximum number of addresses reached");
+    MAX_ADDRESSES_REACHED("AD001", "Maximum number of addresses reached"),
+    INSUFFICIENT_STOCK("ST001", "Insufficient stock for '%s': requested %d but only %d available"),
+    PRICE_VERIFICATION_FAILED("PR001", "Unable to verify product prices — catalog service unavailable"),
+    COUPON_SCOPE_MISMATCH("CO007", "Coupon does not apply to any products in your cart");
 
     private final String code;
     private final String detail;

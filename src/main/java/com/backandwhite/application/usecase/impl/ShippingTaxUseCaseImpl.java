@@ -156,14 +156,27 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
         }
 
         // 3. Default 10 % when no rules are configured
-        BigDecimal rate = rules.isEmpty()
-                ? DEFAULT_TAX_RATE
-                : rules.stream()
-                        .map(TaxRule::getRate)
-                        .max(BigDecimal::compareTo)
-                        .orElse(DEFAULT_TAX_RATE);
+        if (rules.isEmpty()) {
+            return subtotal.multiply(DEFAULT_TAX_RATE).setScale(2, RoundingMode.HALF_UP);
+        }
 
-        return subtotal.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+        // Pick the rule with the highest rate
+        TaxRule bestRule = rules.stream()
+                .max(java.util.Comparator.comparing(TaxRule::getRate))
+                .orElse(null);
+
+        if (bestRule == null) {
+            return subtotal.multiply(DEFAULT_TAX_RATE).setScale(2, RoundingMode.HALF_UP);
+        }
+
+        // 4. Respect TaxType: FIXED uses rate as flat amount, everything else as
+        // percentage
+        if (bestRule.getType() == com.backandwhite.domain.valureobject.TaxType.FIXED) {
+            return bestRule.getRate().setScale(2, RoundingMode.HALF_UP);
+        }
+
+        // PERCENTAGE, VAT, SALES, GST — all treated as percentage of subtotal
+        return subtotal.multiply(bestRule.getRate()).setScale(2, RoundingMode.HALF_UP);
     }
 
     @Override

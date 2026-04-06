@@ -8,21 +8,25 @@ import com.backandwhite.domain.valureobject.OrderStatus;
 import java.util.Map;
 
 public interface OrderUseCase {
-    Order createFromCart(String userId, String sessionId, Map<String, Object> shippingAddress,
-            Map<String, Object> billingAddress, String paymentMethod, String couponCode, String notes);
+        Order createFromCart(String userId, String sessionId, Map<String, Object> shippingAddress,
+                        Map<String, Object> billingAddress, String paymentMethod, String couponCode, String notes);
 
-    Order findById(String id);
+        Order confirmOrder(String orderId, String userId);
 
-    Order findByOrderNumber(String orderNumber);
+        Order findById(String id);
 
-    PaginationDtoOut<Order> findAll(Map<String, Object> filters, int page, int size, String sortBy, boolean ascending);
+        Order findByOrderNumber(String orderNumber);
 
-    PaginationDtoOut<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size, String sortBy,
-            boolean ascending);
+        PaginationDtoOut<Order> findAll(Map<String, Object> filters, int page, int size, String sortBy,
+                        boolean ascending);
 
-    Order updateStatus(String id, OrderStatus newStatus, String changedBy, String reason);
+        PaginationDtoOut<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size,
+                        String sortBy,
+                        boolean ascending);
 
-    Order cancel(String id, String userId, String reason);
+        Order updateStatus(String id, OrderStatus newStatus, String changedBy, String reason);
 
-    OrderStats getStats();
+        Order cancel(String id, String userId, String reason);
+
+        OrderStats getStats();
 }

@@ -13,6 +13,9 @@ import com.backandwhite.domain.valureobject.CartStatus;
 import com.backandwhite.domain.valureobject.CouponType;
 import com.backandwhite.domain.valureobject.InvoiceStatus;
 import com.backandwhite.domain.valureobject.OrderStatus;
+import com.backandwhite.infrastructure.client.CatalogClient;
+import com.backandwhite.infrastructure.client.CatalogClient.ProductVerification;
+import com.backandwhite.infrastructure.client.CmsClient;
 import com.backandwhite.infrastructure.message.kafka.producer.OrderEventProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -39,6 +42,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
     private final CouponUseCase couponUseCase;
     private final ShippingTaxUseCase shippingTaxUseCase;
     private final InvoiceUseCase invoiceUseCase;
+    private final CatalogClient catalogClient;
+    private final CmsClient cmsClient;
     private final Optional<OrderEventProducerService> orderEventProducer;
 
     @Override
@@ -61,12 +66,68 @@ public class OrderUseCaseImpl implements OrderUseCase {
             throw CART_EMPTY.toBusinessException();
         }
 
-        BigDecimal subtotal = cart.getSubtotal();
+        // 1.5 Validate prices and stock against the product catalog (C-01, C-04, C-02)
+        List<Map<String, Object>> activeCampaigns = cmsClient.getActiveCampaigns();
+        Map<String, String> productCategoryMap = new HashMap<>(); // productId → categoryId
+        BigDecimal totalWeight = BigDecimal.ZERO; // sum of item weights for shipping (M-03)
 
-        // 2. Calculate shipping
+        for (CartItem ci : cart.getItems()) {
+            // Verify unit price against catalog's actual price + active campaigns
+            Optional<ProductVerification> verification = catalogClient.getVerifiedPriceAndCategory(
+                    ci.getProductId(), ci.getVariantId());
+            if (verification.isPresent()) {
+                BigDecimal basePrice = verification.get().price();
+                String categoryId = verification.get().categoryId();
+                BigDecimal itemWeight = verification.get().weight();
+                productCategoryMap.put(ci.getProductId(), categoryId);
+
+                // Accumulate weight (M-03)
+                if (itemWeight != null && itemWeight.compareTo(BigDecimal.ZERO) > 0) {
+                    totalWeight = totalWeight.add(
+                            itemWeight.multiply(BigDecimal.valueOf(ci.getQuantity())));
+                }
+
+                // Apply best campaign discount (server-side — C-02)
+                BigDecimal campaignDiscount = cmsClient.calculateBestCampaignDiscount(
+                        activeCampaigns, ci.getProductId(), categoryId, basePrice);
+                BigDecimal verifiedPrice = basePrice.subtract(campaignDiscount);
+                if (verifiedPrice.compareTo(BigDecimal.ZERO) < 0) {
+                    verifiedPrice = BigDecimal.ZERO;
+                }
+
+                if (ci.getUnitPrice().compareTo(verifiedPrice) != 0) {
+                    log.warn(
+                            "Price correction: product={}, variant={}, cart={}, verified={} (base={}, campaign discount={})",
+                            ci.getProductId(), ci.getVariantId(),
+                            ci.getUnitPrice(), verifiedPrice, basePrice, campaignDiscount);
+                    ci.setUnitPrice(verifiedPrice);
+                }
+            }
+
+            // Check stock availability before creating the order (C-04)
+            if (ci.getVariantId() != null && !ci.getVariantId().isBlank()) {
+                int available = catalogClient.getAvailableStock(ci.getVariantId());
+                if (available >= 0 && available < ci.getQuantity()) {
+                    throw INSUFFICIENT_STOCK.toBusinessException(
+                            ci.getProductName(), ci.getQuantity(), available);
+                }
+            }
+        }
+
+        // Fallback weight if no variant weights found
+        if (totalWeight.compareTo(BigDecimal.ZERO) == 0) {
+            totalWeight = BigDecimal.ONE;
+        }
+
+        // Recalculate subtotal from verified prices
+        BigDecimal subtotal = cart.getItems().stream()
+                .map(ci -> ci.getUnitPrice().multiply(BigDecimal.valueOf(ci.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 2. Calculate shipping (using real product weight — M-03)
         String country = shippingAddress.getOrDefault("country", "").toString();
         BigDecimal shippingCost = BigDecimal.ZERO;
-        List<ShippingRule> options = shippingTaxUseCase.findShippingOptions(country, BigDecimal.ONE, subtotal);
+        List<ShippingRule> options = shippingTaxUseCase.findShippingOptions(country, totalWeight, subtotal);
         if (!options.isEmpty()) {
             shippingCost = options.getFirst().getRate();
         }
@@ -75,17 +136,35 @@ public class OrderUseCaseImpl implements OrderUseCase {
         String region = shippingAddress.getOrDefault("region", "").toString();
         BigDecimal taxAmount = shippingTaxUseCase.calculateTax(country, region, subtotal);
 
-        // 4. Apply coupon
+        // 4. Apply coupon (with scope filtering for appliesToProducts/Categories —
+        // M-05)
         BigDecimal discountAmount = BigDecimal.ZERO;
         String couponId = null;
         boolean freeShipping = false;
 
         if (couponCode != null && !couponCode.isBlank()) {
-            discountAmount = couponUseCase.validate(couponCode, subtotal, userId);
+            // Basic validation (active, not expired, usage limits, min order)
+            couponUseCase.validate(couponCode, subtotal, userId);
 
             Coupon coupon = couponUseCase.findByCode(couponCode);
             couponId = coupon.getId();
             freeShipping = coupon.getType() == CouponType.FREE_SHIPPING;
+
+            // Check coupon scope and calculate eligible subtotal (M-05)
+            BigDecimal eligibleSubtotal = calculateEligibleSubtotal(
+                    coupon, cart.getItems(), productCategoryMap);
+
+            boolean hasScopeRestrictions = (coupon.getAppliesToProducts() != null
+                    && !coupon.getAppliesToProducts().isEmpty())
+                    || (coupon.getAppliesToCategories() != null && !coupon.getAppliesToCategories().isEmpty());
+
+            if (hasScopeRestrictions && eligibleSubtotal.compareTo(BigDecimal.ZERO) == 0) {
+                throw COUPON_SCOPE_MISMATCH.toBusinessException();
+            }
+
+            // Calculate discount on eligible subtotal only
+            BigDecimal discountBase = hasScopeRestrictions ? eligibleSubtotal : subtotal;
+            discountAmount = calculateCouponDiscount(coupon, discountBase);
         }
 
         if (freeShipping) {
@@ -115,7 +194,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         Order order = Order.builder()
                 .orderNumber(generateOrderNumber())
                 .userId(userId)
-                .status(OrderStatus.PENDING)
+                .status(OrderStatus.DRAFT)
                 .subtotal(subtotal)
                 .shippingCost(shippingCost)
                 .taxAmount(taxAmount)
@@ -131,34 +210,66 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         Order saved = orderRepository.save(order);
 
+        // Mark cart as ordered (prevent reuse)
+        cart.setStatus(CartStatus.ORDERED);
+        cartRepository.update(cart);
+
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public Order confirmOrder(String orderId, String userId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", orderId));
+
+        if (order.getStatus() != OrderStatus.DRAFT) {
+            throw INVALID_STATUS_TRANSITION.toBusinessException(order.getStatus(), OrderStatus.PENDING);
+        }
+
+        // Transition to PENDING
+        order.setStatus(OrderStatus.PENDING);
+        Order confirmed = orderRepository.update(order);
+
+        // Record status history
+        OrderStatusHistory history = OrderStatusHistory.builder()
+                .orderId(confirmed.getId())
+                .fromStatus(OrderStatus.DRAFT.name())
+                .toStatus(OrderStatus.PENDING.name())
+                .changedBy(userId)
+                .reason("Payment confirmed — order activated")
+                .changedAt(Instant.now())
+                .build();
+        orderRepository.addStatusHistory(history);
+
         // Publish order.created event
         orderEventProducer.ifPresent(p -> p.publishOrderCreated(
-                saved.getId(), userId, null, saved.getOrderNumber(),
-                saved.getTotal().toPlainString(), saved.getStatus().name(),
-                saved.getItems().size(), null));
+                confirmed.getId(), userId, null, confirmed.getOrderNumber(),
+                confirmed.getTotal().toPlainString(), confirmed.getStatus().name(),
+                confirmed.getItems().size(), null));
 
         // Deduct stock for each item via Kafka
         orderEventProducer.ifPresent(producer -> {
-            for (OrderItem oi : saved.getItems()) {
+            for (OrderItem oi : confirmed.getItems()) {
                 if (oi.getVariantId() != null && !oi.getVariantId().isBlank()) {
                     producer.publishStockDeducted(
                             oi.getProductId(),
                             oi.getVariantId(),
-                            saved.getId(),
+                            confirmed.getId(),
                             oi.getQuantity());
                 }
             }
         });
 
-        // 7. Auto-create invoice
+        // Auto-create invoice
         try {
             Map<String, Object> customerSnapshot = new LinkedHashMap<>();
-            customerSnapshot.put("name", shippingAddress.getOrDefault("fullName", ""));
-            customerSnapshot.put("phone", shippingAddress.getOrDefault("phone", ""));
-            customerSnapshot.put("address", buildAddressString(shippingAddress));
+            customerSnapshot.put("name", confirmed.getShippingAddress().getOrDefault("fullName", ""));
+            customerSnapshot.put("phone", confirmed.getShippingAddress().getOrDefault("phone", ""));
+            customerSnapshot.put("address", buildAddressString(confirmed.getShippingAddress()));
 
             List<Map<String, Object>> invoiceLines = new ArrayList<>();
-            for (OrderItem oi : saved.getItems()) {
+            for (OrderItem oi : confirmed.getItems()) {
                 Map<String, Object> line = new LinkedHashMap<>();
                 line.put("name", oi.getProductName());
                 line.put("sku", oi.getSku());
@@ -170,36 +281,32 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
             Invoice invoice = Invoice.builder()
                     .invoiceNumber(generateInvoiceNumber())
-                    .orderId(saved.getId())
+                    .orderId(confirmed.getId())
                     .status(InvoiceStatus.PENDING)
                     .issueDate(LocalDate.now())
                     .dueDate(LocalDate.now().plusDays(30))
-                    .subtotal(saved.getSubtotal())
-                    .shipping(saved.getShippingCost())
-                    .tax(saved.getTaxAmount())
-                    .total(saved.getTotal())
-                    .paymentMethod(saved.getPaymentMethod())
+                    .subtotal(confirmed.getSubtotal())
+                    .shipping(confirmed.getShippingCost())
+                    .tax(confirmed.getTaxAmount())
+                    .total(confirmed.getTotal())
+                    .paymentMethod(confirmed.getPaymentMethod())
                     .customerSnapshot(customerSnapshot)
                     .lines(invoiceLines)
                     .notes(null)
                     .build();
 
             invoiceUseCase.create(invoice);
-            log.info("Invoice {} created for order {}", invoice.getInvoiceNumber(), saved.getOrderNumber());
+            log.info("Invoice {} created for order {}", invoice.getInvoiceNumber(), confirmed.getOrderNumber());
         } catch (Exception e) {
-            log.warn("Failed to auto-create invoice for order {}: {}", saved.getId(), e.getMessage());
+            log.warn("Failed to auto-create invoice for order {}: {}", confirmed.getId(), e.getMessage());
         }
 
-        // 8. Apply coupon usage
-        if (couponId != null) {
-            couponUseCase.applyCouponToOrder(couponId, userId, saved.getId());
+        // Apply coupon usage
+        if (confirmed.getCouponId() != null) {
+            couponUseCase.applyCouponToOrder(confirmed.getCouponId(), userId, confirmed.getId());
         }
 
-        // 9. Mark cart as ordered
-        cart.setStatus(CartStatus.ORDERED);
-        cartRepository.update(cart);
-
-        return saved;
+        return confirmed;
     }
 
     @Override
@@ -332,5 +439,57 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 sb.append(", ");
             sb.append(val);
         }
+    }
+
+    /**
+     * Calculates the subtotal of cart items that match the coupon's scope
+     * restrictions.
+     * If the coupon has no scope (appliesToProducts/Categories both empty), returns
+     * full subtotal.
+     */
+    private BigDecimal calculateEligibleSubtotal(Coupon coupon, List<CartItem> items,
+            Map<String, String> productCategoryMap) {
+        List<String> scopeProducts = coupon.getAppliesToProducts();
+        List<String> scopeCategories = coupon.getAppliesToCategories();
+
+        boolean hasProductScope = scopeProducts != null && !scopeProducts.isEmpty();
+        boolean hasCategoryScope = scopeCategories != null && !scopeCategories.isEmpty();
+
+        if (!hasProductScope && !hasCategoryScope) {
+            // No scope restrictions — all items are eligible
+            return items.stream()
+                    .map(ci -> ci.getUnitPrice().multiply(BigDecimal.valueOf(ci.getQuantity())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        return items.stream()
+                .filter(ci -> {
+                    if (hasProductScope && scopeProducts.contains(ci.getProductId())) {
+                        return true;
+                    }
+                    if (hasCategoryScope) {
+                        String catId = productCategoryMap.get(ci.getProductId());
+                        return catId != null && scopeCategories.contains(catId);
+                    }
+                    return false;
+                })
+                .map(ci -> ci.getUnitPrice().multiply(BigDecimal.valueOf(ci.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Calculates the discount for a coupon based on the given subtotal.
+     * Mirrors the logic in CouponUseCaseImpl.calculateDiscount.
+     */
+    private BigDecimal calculateCouponDiscount(Coupon coupon, BigDecimal subtotal) {
+        if (coupon.getType() == CouponType.PERCENTAGE) {
+            return subtotal.multiply(coupon.getValue())
+                    .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        }
+        if (coupon.getType() == CouponType.FIXED) {
+            return coupon.getValue().min(subtotal);
+        }
+        // FREE_SHIPPING — discount is 0, shipping will be zeroed separately
+        return BigDecimal.ZERO;
     }
 }
