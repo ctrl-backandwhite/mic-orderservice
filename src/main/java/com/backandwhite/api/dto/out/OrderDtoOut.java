@@ -47,6 +47,18 @@ public class OrderDtoOut {
     @Schema(description = "ID del cupón aplicado")
     private String couponId;
 
+    @Schema(description = "Código de tarjeta de regalo")
+    private String giftCardCode;
+
+    @Schema(description = "Monto cubierto por tarjeta de regalo")
+    private java.math.BigDecimal giftCardAmount;
+
+    @Schema(description = "Puntos de lealtad canjeados")
+    private Integer loyaltyPointsUsed;
+
+    @Schema(description = "Descuento por puntos de lealtad")
+    private java.math.BigDecimal loyaltyDiscount;
+
     @Schema(description = "Dirección de envío")
     private Map<String, Object> shippingAddress;
 

@@ -24,6 +24,10 @@ public class Order {
     private BigDecimal discountAmount;
     private BigDecimal total;
     private String couponId;
+    private String giftCardCode;
+    private BigDecimal giftCardAmount;
+    private Integer loyaltyPointsUsed;
+    private BigDecimal loyaltyDiscount;
     private Map<String, Object> shippingAddress;
     private Map<String, Object> billingAddress;
     private String paymentMethod;

@@ -13,6 +13,10 @@ spring:
         caffeine:
             spec: maximumSize=500,expireAfterAccess=600s
 
+app:
+    store:
+        url: ${APP_STORE_URL:http://localhost:9000}
+
 services:
     productcategory:
         url: ${SERVICES_PRODUCTCATEGORY_URL:http://localhost:6002}

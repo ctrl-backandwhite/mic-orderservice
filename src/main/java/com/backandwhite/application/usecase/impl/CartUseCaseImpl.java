@@ -54,7 +54,7 @@ public class CartUseCaseImpl implements CartUseCase {
 
     @Override
     @Transactional
-    public CartItem addItem(String userId, String sessionId, CartItem item) {
+    public Cart addItem(String userId, String sessionId, CartItem item) {
         Cart cart = getOrCreateCart(userId, sessionId);
 
         Optional<CartItem> existing = cartRepository.findItemByCartAndProduct(
@@ -63,27 +63,39 @@ public class CartUseCaseImpl implements CartUseCase {
         if (existing.isPresent()) {
             CartItem existingItem = existing.get();
             existingItem.setQuantity(existingItem.getQuantity() + item.getQuantity());
-            return cartRepository.updateItem(existingItem);
+            cartRepository.updateItem(existingItem);
+        } else {
+            item.setCartId(cart.getId());
+            cartRepository.addItem(cart.getId(), item);
         }
 
-        item.setCartId(cart.getId());
-        return cartRepository.addItem(cart.getId(), item);
+        return cartRepository.findById(cart.getId())
+                .orElse(cart);
     }
 
     @Override
     @Transactional
-    public CartItem updateItemQuantity(String itemId, int quantity) {
+    public Cart updateItemQuantity(String itemId, int quantity) {
         CartItem item = cartRepository.findItemById(itemId)
                 .orElseThrow(() -> new com.backandwhite.common.exception.EntityNotFoundException("NF001",
                         "CartItem with id " + itemId + " is not found."));
         item.setQuantity(quantity);
-        return cartRepository.updateItem(item);
+        cartRepository.updateItem(item);
+        return cartRepository.findById(item.getCartId())
+                .orElseThrow(() -> new com.backandwhite.common.exception.EntityNotFoundException("NF001",
+                        "Cart not found for item " + itemId));
     }
 
     @Override
     @Transactional
-    public void removeItem(String itemId) {
+    public Cart removeItem(String userId, String sessionId, String itemId) {
+        CartItem item = cartRepository.findItemById(itemId)
+                .orElseThrow(() -> new com.backandwhite.common.exception.EntityNotFoundException("NF001",
+                        "CartItem with id " + itemId + " is not found."));
+        String cartId = item.getCartId();
         cartRepository.removeItem(itemId);
+        return cartRepository.findById(cartId)
+                .orElse(Cart.builder().items(new ArrayList<>()).subtotal(BigDecimal.ZERO).itemCount(0).build());
     }
 
     @Override

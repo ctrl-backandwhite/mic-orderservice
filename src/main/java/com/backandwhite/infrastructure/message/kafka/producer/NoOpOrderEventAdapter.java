@@ -72,4 +72,9 @@ public class NoOpOrderEventAdapter implements OrderEventPort {
     public void publishStockDeducted(String productId, String variantId,
             String orderId, int quantity) {
     }
+
+    @Override
+    public void publishInvoiceEmail(String email, String subject, String templateName,
+            java.util.Map<String, String> variables) {
+    }
 }

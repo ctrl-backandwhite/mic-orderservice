@@ -48,6 +48,15 @@ public class InvoiceDtoOut {
     @Schema(description = "Total")
     private BigDecimal total;
 
+    @Schema(description = "Descuento por cupón")
+    private BigDecimal discountAmount;
+
+    @Schema(description = "Monto cubierto por tarjeta de regalo")
+    private BigDecimal giftCardAmount;
+
+    @Schema(description = "Descuento por puntos de lealtad")
+    private BigDecimal loyaltyDiscount;
+
     @Schema(description = "Método de pago")
     private String paymentMethod;
 

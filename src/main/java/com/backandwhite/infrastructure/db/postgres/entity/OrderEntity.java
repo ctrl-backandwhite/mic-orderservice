@@ -55,6 +55,21 @@ public class OrderEntity extends AuditableEntity {
     @Column(name = "coupon_id", length = 64)
     private String couponId;
 
+    @Column(name = "gift_card_code", length = 50)
+    private String giftCardCode;
+
+    @Column(name = "gift_card_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal giftCardAmount = BigDecimal.ZERO;
+
+    @Column(name = "loyalty_points_used", nullable = false)
+    @Builder.Default
+    private Integer loyaltyPointsUsed = 0;
+
+    @Column(name = "loyalty_discount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal loyaltyDiscount = BigDecimal.ZERO;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "shipping_address", nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> shippingAddress;

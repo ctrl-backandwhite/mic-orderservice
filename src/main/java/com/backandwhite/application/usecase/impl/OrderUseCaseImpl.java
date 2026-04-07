@@ -18,12 +18,15 @@ import com.backandwhite.application.port.out.CmsPort;
 import com.backandwhite.application.port.out.OrderEventPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -35,8 +38,10 @@ import static com.backandwhite.domain.exception.Message.*;
 
 @Log4j2
 @Service
-@RequiredArgsConstructor
 public class OrderUseCaseImpl implements OrderUseCase {
+
+    @Value("${app.store.url:http://localhost:9000}")
+    private String storeUrl;
 
     private final OrderRepository orderRepository;
     private final CartRepository cartRepository;
@@ -47,12 +52,29 @@ public class OrderUseCaseImpl implements OrderUseCase {
     private final CmsPort cmsClient;
     private final OrderEventPort orderEventPort;
 
+    public OrderUseCaseImpl(OrderRepository orderRepository, CartRepository cartRepository,
+            CouponUseCase couponUseCase, ShippingTaxUseCase shippingTaxUseCase,
+            InvoiceUseCase invoiceUseCase, CatalogPort catalogClient,
+            CmsPort cmsClient, OrderEventPort orderEventPort) {
+        this.orderRepository = orderRepository;
+        this.cartRepository = cartRepository;
+        this.couponUseCase = couponUseCase;
+        this.shippingTaxUseCase = shippingTaxUseCase;
+        this.invoiceUseCase = invoiceUseCase;
+        this.catalogClient = catalogClient;
+        this.cmsClient = cmsClient;
+        this.orderEventPort = orderEventPort;
+    }
+
     @Override
     @Transactional
     public Order createFromCart(String userId, String sessionId,
             Map<String, Object> shippingAddress,
             Map<String, Object> billingAddress,
-            String paymentMethod, String couponCode, String notes) {
+            String paymentMethod, String couponCode,
+            String giftCardCode, BigDecimal giftCardAmount,
+            Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount,
+            String notes) {
 
         if (shippingAddress == null || shippingAddress.isEmpty()) {
             throw MAX_ADDRESSES_REACHED.toBusinessException();
@@ -192,6 +214,10 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 .toList();
 
         // 6. Build order
+        BigDecimal gcAmount = giftCardAmount != null ? giftCardAmount : BigDecimal.ZERO;
+        BigDecimal lyDiscount = loyaltyDiscount != null ? loyaltyDiscount : BigDecimal.ZERO;
+        int lyPoints = loyaltyPointsUsed != null ? loyaltyPointsUsed : 0;
+
         Order order = Order.builder()
                 .orderNumber(generateOrderNumber())
                 .userId(userId)
@@ -202,6 +228,10 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 .discountAmount(discountAmount)
                 .total(total)
                 .couponId(couponId)
+                .giftCardCode(giftCardCode)
+                .giftCardAmount(gcAmount)
+                .loyaltyPointsUsed(lyPoints)
+                .loyaltyDiscount(lyDiscount)
                 .shippingAddress(shippingAddress)
                 .billingAddress(billingAddress != null ? billingAddress : shippingAddress)
                 .paymentMethod(paymentMethod)
@@ -220,7 +250,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
     @Override
     @Transactional
-    public Order confirmOrder(String orderId, String userId) {
+    public Order confirmOrder(String orderId, String userId, String email) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", orderId));
 
@@ -245,12 +275,12 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         // Publish order.created event
         orderEventPort.publishOrderCreated(
-                confirmed.getId(), userId, null, confirmed.getOrderNumber(),
+                confirmed.getId(), userId, email, confirmed.getOrderNumber(),
                 confirmed.getTotal().toPlainString(), confirmed.getStatus().name(),
-                confirmed.getItems().size(), null);
+                order.getItems().size(), null);
 
         // Deduct stock for each item via Kafka
-        for (OrderItem oi : confirmed.getItems()) {
+        for (OrderItem oi : order.getItems()) {
             if (oi.getVariantId() != null && !oi.getVariantId().isBlank()) {
                 orderEventPort.publishStockDeducted(
                         oi.getProductId(),
@@ -261,6 +291,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         }
 
         // Auto-create invoice
+        Invoice invoice = null;
         try {
             Map<String, Object> customerSnapshot = new LinkedHashMap<>();
             customerSnapshot.put("name", confirmed.getShippingAddress().getOrDefault("fullName", ""));
@@ -268,7 +299,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
             customerSnapshot.put("address", buildAddressString(confirmed.getShippingAddress()));
 
             List<Map<String, Object>> invoiceLines = new ArrayList<>();
-            for (OrderItem oi : confirmed.getItems()) {
+            for (OrderItem oi : order.getItems()) {
                 Map<String, Object> line = new LinkedHashMap<>();
                 line.put("name", oi.getProductName());
                 line.put("sku", oi.getSku());
@@ -278,16 +309,22 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 invoiceLines.add(line);
             }
 
-            Invoice invoice = Invoice.builder()
+            invoice = Invoice.builder()
                     .invoiceNumber(generateInvoiceNumber())
                     .orderId(confirmed.getId())
-                    .status(InvoiceStatus.PENDING)
+                    .status(InvoiceStatus.PAID)
                     .issueDate(LocalDate.now())
                     .dueDate(LocalDate.now().plusDays(30))
                     .subtotal(confirmed.getSubtotal())
                     .shipping(confirmed.getShippingCost())
                     .tax(confirmed.getTaxAmount())
                     .total(confirmed.getTotal())
+                    .discountAmount(
+                            confirmed.getDiscountAmount() != null ? confirmed.getDiscountAmount() : BigDecimal.ZERO)
+                    .giftCardAmount(
+                            confirmed.getGiftCardAmount() != null ? confirmed.getGiftCardAmount() : BigDecimal.ZERO)
+                    .loyaltyDiscount(
+                            confirmed.getLoyaltyDiscount() != null ? confirmed.getLoyaltyDiscount() : BigDecimal.ZERO)
                     .paymentMethod(confirmed.getPaymentMethod())
                     .customerSnapshot(customerSnapshot)
                     .lines(invoiceLines)
@@ -298,6 +335,20 @@ public class OrderUseCaseImpl implements OrderUseCase {
             log.info("Invoice {} created for order {}", invoice.getInvoiceNumber(), confirmed.getOrderNumber());
         } catch (Exception e) {
             log.warn("Failed to auto-create invoice for order {}: {}", confirmed.getId(), e.getMessage());
+        }
+
+        // Send invoice email via Kafka → notification service
+        if (invoice != null && email != null && !email.isBlank()) {
+            try {
+                orderEventPort.publishInvoiceEmail(
+                        email,
+                        "Factura de tu pedido " + confirmed.getOrderNumber(),
+                        "order-invoice",
+                        buildInvoiceEmailVars(confirmed, invoice));
+                log.info("Invoice email event published for order {} to {}", confirmed.getOrderNumber(), email);
+            } catch (Exception e) {
+                log.warn("Failed to publish invoice email for order {}: {}", confirmed.getId(), e.getMessage());
+            }
         }
 
         // Apply coupon usage
@@ -492,5 +543,109 @@ public class OrderUseCaseImpl implements OrderUseCase {
         }
         // FREE_SHIPPING — discount is 0, shipping will be zeroed separately
         return BigDecimal.ZERO;
+    }
+
+    /**
+     * Builds the template variables map for the invoice email notification.
+     * All values are strings (as required by the Avro EmailNotificationEvent
+     * schema).
+     */
+    private Map<String, String> buildInvoiceEmailVars(Order order, Invoice invoice) {
+        Map<String, String> vars = new LinkedHashMap<>();
+        vars.put("invoiceNumber", invoice.getInvoiceNumber());
+        vars.put("orderNumber", order.getOrderNumber());
+        vars.put("issueDate", invoice.getIssueDate().toString());
+        vars.put("paymentMethod", fmtPaymentMethod(order.getPaymentMethod()));
+
+        // Customer snapshot
+        Map<String, Object> cs = invoice.getCustomerSnapshot();
+        vars.put("customerName", cs != null ? String.valueOf(cs.getOrDefault("name", "")) : "");
+        vars.put("customerPhone", cs != null ? String.valueOf(cs.getOrDefault("phone", "")) : "");
+        vars.put("customerAddress", cs != null ? String.valueOf(cs.getOrDefault("address", "")) : "");
+
+        // Pre-render line items as HTML table rows (avoids Thymeleaf preprocessing
+        // complexity)
+        List<Map<String, Object>> lines = invoice.getLines();
+        vars.put("itemCount", String.valueOf(lines != null ? lines.size() : 0));
+        vars.put("linesHtml", buildLinesHtml(lines));
+
+        // Totals
+        vars.put("subtotal", fmt(invoice.getSubtotal()));
+        vars.put("shipping", fmt(invoice.getShipping()));
+        vars.put("tax", fmt(invoice.getTax()));
+        vars.put("discount", fmt(invoice.getDiscountAmount()));
+        vars.put("giftCard", fmt(invoice.getGiftCardAmount()));
+        vars.put("loyaltyDiscount", fmt(invoice.getLoyaltyDiscount()));
+        vars.put("total", fmt(invoice.getTotal()));
+        vars.put("currency", "EUR");
+
+        // Invoice download URL & QR code
+        String invoiceUrl = storeUrl + "/api/v1/invoices/order/" + order.getId() + "/pdf";
+        vars.put("invoiceUrl", invoiceUrl);
+        vars.put("qrCodeUrl", "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data="
+                + URLEncoder.encode(invoiceUrl, StandardCharsets.UTF_8));
+
+        return vars;
+    }
+
+    /**
+     * Builds the HTML for invoice line item rows to be injected via th:utext.
+     */
+    private String buildLinesHtml(List<Map<String, Object>> lines) {
+        if (lines == null || lines.isEmpty())
+            return "";
+        var sb = new StringBuilder();
+        for (Map<String, Object> l : lines) {
+            String name = String.valueOf(l.getOrDefault("name", ""));
+            String sku = String.valueOf(l.getOrDefault("sku", ""));
+            String qty = String.valueOf(l.getOrDefault("quantity", "0"));
+            String price = fmt(l.get("unitPrice"));
+            String total = fmt(l.get("total"));
+
+            sb.append("<tr><td style=\"background:#ffffff;padding:0 40px;\">")
+                    .append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border-bottom:1px solid #f1f5f9;\">")
+                    .append("<tr>")
+                    .append("<td style=\"padding:12px 0;\">")
+                    .append("<p style=\"margin:0 0 2px;font-size:14px;color:#1e293b;font-weight:500;\">")
+                    .append(escHtml(name)).append("</p>")
+                    .append("<p style=\"margin:0;font-size:11px;color:#94a3b8;font-family:'Courier New',monospace;\">")
+                    .append(escHtml(sku)).append("</p>")
+                    .append("</td>")
+                    .append("<td align=\"center\" style=\"padding:12px 0;font-size:14px;color:#334155;width:50px;\">")
+                    .append(escHtml(qty)).append("</td>")
+                    .append("<td align=\"right\" style=\"padding:12px 0;font-size:14px;color:#334155;width:80px;\">")
+                    .append(escHtml(price)).append(" <span style=\"font-size:11px;color:#94a3b8;\">EUR</span></td>")
+                    .append("<td align=\"right\" style=\"padding:12px 0;font-size:14px;color:#1e293b;font-weight:500;width:80px;\">")
+                    .append(escHtml(total)).append(" <span style=\"font-size:11px;color:#94a3b8;\">EUR</span></td>")
+                    .append("</tr></table></td></tr>");
+        }
+        return sb.toString();
+    }
+
+    private String escHtml(String s) {
+        if (s == null)
+            return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    private String fmt(Object value) {
+        if (value == null)
+            return "0.00";
+        if (value instanceof BigDecimal bd)
+            return bd.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+        return value.toString();
+    }
+
+    private String fmtPaymentMethod(String pm) {
+        if (pm == null)
+            return "—";
+        return switch (pm.toLowerCase()) {
+            case "credit_card", "creditcard" -> "Tarjeta de crédito";
+            case "debit_card", "debitcard" -> "Tarjeta de débito";
+            case "paypal" -> "PayPal";
+            case "bank_transfer", "banktransfer" -> "Transferencia bancaria";
+            case "cash_on_delivery", "cashondelivery", "cod" -> "Contra reembolso";
+            default -> pm;
+        };
     }
 }

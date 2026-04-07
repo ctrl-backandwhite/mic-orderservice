@@ -42,7 +42,10 @@ public class OrderController {
             @Parameter(description = "SessionID") @RequestHeader(value = "X-Session-Id", required = false) String sessionId,
             @Valid @RequestBody CreateOrderDtoIn dto) {
         Order order = orderUseCase.createFromCart(userId, sessionId, dto.getShippingAddress(), dto.getBillingAddress(),
-                dto.getPaymentMethod(), dto.getCouponCode(), dto.getNotes());
+                dto.getPaymentMethod(), dto.getCouponCode(),
+                dto.getGiftCardCode(), dto.getGiftCardAmount(),
+                dto.getLoyaltyPointsUsed(), dto.getLoyaltyDiscount(),
+                dto.getNotes());
         return ResponseEntity.status(HttpStatus.CREATED).body(orderApiMapper.toDto(order));
     }
 
@@ -85,12 +88,13 @@ public class OrderController {
     }
 
     @PostMapping("/me/{id}/confirm")
-    @Operation(summary = "Confirmar pedido tras pago", description = "Transiciona orden DRAFT→PENDING, deduce stock, crea factura")
+    @Operation(summary = "Confirmar pedido tras pago", description = "Transiciona orden DRAFT→PENDING, deduce stock, crea factura y envía email de factura")
     public ResponseEntity<OrderDtoOut> confirmOrder(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "ID del usuario") @RequestHeader("X-Auth-Subject") String userId,
+            @Parameter(description = "Email del usuario") @RequestHeader(value = "X-Auth-Email", required = false) String email,
             @Parameter(description = "ID del pedido") @PathVariable String id) {
-        Order confirmed = orderUseCase.confirmOrder(id, userId);
+        Order confirmed = orderUseCase.confirmOrder(id, userId, email);
         return ResponseEntity.ok(orderApiMapper.toDto(confirmed));
     }
     // ──Adminendpoints ──────────────────────────────────────────────────

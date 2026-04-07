@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        @page {
+            size: A4;
+            margin: 24px 28px;
+        }
+
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background-color: #f9fafb;
+        }
+
+        .invoice-card {
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            padding: 0;
+            margin: 0 auto;
+        }
+
+        /* ── Header ───────────────────────────────── */
+        .header {
+            padding: 32px 36px 24px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .header-table td {
+            vertical-align: top;
+        }
+
+        .logo-box {
+            width: 28px;
+            height: 28px;
+            background-color: #6b7280;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-align: center;
+            line-height: 28px;
+        }
+
+        .brand-name {
+            font-size: 18px;
+            color: #111827;
+            letter-spacing: 3px;
+            margin: 0;
+            padding-left: 8px;
+        }
+
+        .company-info {
+            font-size: 10px;
+            color: #9ca3af;
+            margin: 4px 0 0;
+        }
+
+        .invoice-title {
+            font-size: 22px;
+            color: #111827;
+            margin: 0 0 4px;
+            text-align: right;
+        }
+
+        .invoice-number {
+            font-size: 13px;
+            color: #374151;
+            font-family: 'Courier New', monospace;
+            margin: 0 0 8px;
+            text-align: right;
+        }
+
+        .status-badge {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            padding: 4px 12px;
+            border: 1px solid;
+        }
+
+        .status-paid {
+            color: #15803d;
+            background-color: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        .status-pending {
+            color: #a16207;
+            background-color: #fffbeb;
+            border-color: #fde68a;
+        }
+
+        .status-overdue {
+            color: #b91c1c;
+            background-color: #fef2f2;
+            border-color: #fecaca;
+        }
+
+        .status-void {
+            color: #6b7280;
+            background-color: #f3f4f6;
+            border-color: #e5e7eb;
+        }
+
+        /* ── Billing section ────────────────────────── */
+        .billing-section {
+            padding: 24px 36px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .billing-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .billing-table td {
+            vertical-align: top;
+        }
+
+        .section-label {
+            font-size: 9px;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0 0 10px;
+        }
+
+        .customer-name {
+            font-size: 13px;
+            color: #111827;
+            margin: 0 0 3px;
+        }
+
+        .customer-detail {
+            font-size: 10px;
+            color: #6b7280;
+            margin: 0 0 2px;
+        }
+
+        .detail-row {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+        }
+
+        .detail-row td {
+            padding: 2px 0;
+            font-size: 10px;
+        }
+
+        .detail-label {
+            color: #9ca3af;
+        }
+
+        .detail-value {
+            color: #374151;
+            text-align: right;
+        }
+
+        .detail-value-mono {
+            color: #374151;
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+
+        .detail-value-red {
+            color: #dc2626;
+            text-align: right;
+        }
+
+        /* ── Line items ────────────────────────────── */
+        .items-section {
+            padding: 24px 36px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .items-table thead th {
+            font-size: 9px;
+            font-weight: normal;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0 4px 10px;
+            border-bottom: 1px solid #f3f4f6;
+            text-align: left;
+        }
+
+        .items-table thead th.center {
+            text-align: center;
+        }
+
+        .items-table thead th.right {
+            text-align: right;
+        }
+
+        .items-table tbody td {
+            padding: 12px 4px;
+            border-bottom: 1px solid #f9fafb;
+            font-size: 11px;
+        }
+
+        .item-name {
+            color: #111827;
+            font-size: 12px;
+            margin: 0 0 2px;
+        }
+
+        .item-sku {
+            color: #9ca3af;
+            font-size: 9px;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+        }
+
+        .items-table tbody td.center {
+            text-align: center;
+            color: #4b5563;
+        }
+
+        .items-table tbody td.right {
+            text-align: right;
+            color: #4b5563;
+        }
+
+        .items-table tbody td.right-bold {
+            text-align: right;
+            color: #111827;
+            font-weight: 500;
+        }
+
+        /* ── Totals ─────────────────────────────────── */
+        .totals-section {
+            padding: 0 36px 28px;
+        }
+
+        .totals-wrapper {
+            width: 260px;
+            margin-left: auto;
+            border-top: 1px solid #f3f4f6;
+            padding-top: 12px;
+        }
+
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .totals-table td {
+            padding: 3px 0;
+            font-size: 12px;
+        }
+
+        .totals-label {
+            color: #6b7280;
+        }
+
+        .totals-value {
+            text-align: right;
+            color: #111827;
+        }
+
+        .totals-value-green {
+            text-align: right;
+            color: #16a34a;
+        }
+
+        .grand-total-row td {
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .grand-total-label {
+            font-size: 12px;
+            color: #111827;
+        }
+
+        .grand-total-value {
+            text-align: right;
+            font-size: 18px;
+            color: #111827;
+            font-weight: bold;
+        }
+
+        .charged-row td {
+            padding-top: 4px;
+            font-size: 11px;
+        }
+
+        .charged-label {
+            color: #9ca3af;
+        }
+
+        .charged-value {
+            text-align: right;
+            color: #4b5563;
+        }
+
+        /* ── Notes ──────────────────────────────────── */
+        .notes-section {
+            margin: 0 36px 20px;
+            padding: 10px 14px;
+            background-color: #f9fafb;
+            border: 1px solid #f3f4f6;
+        }
+
+        .notes-label {
+            font-size: 9px;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 4px;
+        }
+
+        .notes-text {
+            font-size: 10px;
+            color: #4b5563;
+            margin: 0;
+        }
+
+        /* ── Footer ─────────────────────────────────── */
+        .footer {
+            padding: 16px 36px;
+            border-top: 1px solid #f3f4f6;
+            background-color: #fafafa;
+        }
+
+        .footer-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .footer-table td {
+            vertical-align: bottom;
+        }
+
+        .legal-text {
+            font-size: 9px;
+            color: #9ca3af;
+            margin: 0 0 2px;
+        }
+
+        .legal-note {
+            font-size: 9px;
+            color: #d1d5db;
+            margin: 6px 0 0;
+            max-width: 280px;
+        }
+
+        .qr-block {
+            text-align: center;
+        }
+
+        .qr-container {
+            display: inline-block;
+            border: 1px solid #e5e7eb;
+            padding: 6px;
+            background-color: #ffffff;
+        }
+
+        .qr-label {
+            font-size: 8px;
+            color: #9ca3af;
+            letter-spacing: 0.5px;
+            margin: 4px 0 0;
+        }
+
+        .qr-invoice {
+            font-size: 7px;
+            color: #d1d5db;
+            font-family: 'Courier New', monospace;
+            margin: 2px 0 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="invoice-card">
+
+        <!-- ── Header ─────────────────────────────────── -->
+        <div class="header">
+            <table class="header-table">
+                <tr>
+                    <td style="width: 50%;">
+                        <table style="border-collapse:collapse;">
+                            <tr>
+                                <td style="vertical-align:middle;">
+                                    <div class="logo-box">N</div>
+                                </td>
+                                <td style="vertical-align:middle;">
+                                    <p class="brand-name">NX036</p>
+                                </td>
+                            </tr>
+                        </table>
+                        <p class="company-info">info@nx036.com · +1 234 567 890</p>
+                        <p class="company-info">Calle Principal 123 · New York, NY 10001 · US</p>
+                    </td>
+                    <td style="width: 50%; text-align: right;">
+                        <p class="invoice-title">Factura</p>
+                        <p class="invoice-number" th:text="${invoice.invoiceNumber}">FAC-NX-00001</p>
+                        <span th:class="'status-badge status-' + ${statusKey}" th:text="${statusLabel}">PENDIENTE</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- ── Billing info ───────────────────────────── -->
+        <div class="billing-section">
+            <table class="billing-table">
+                <tr>
+                    <td style="width: 50%;">
+                        <p class="section-label">Facturar a</p>
+                        <p class="customer-name" th:text="${customerName}">Nombre</p>
+                        <p class="customer-detail" th:if="${customerEmail != null and !customerEmail.isEmpty()}"
+                            th:text="${customerEmail}">email</p>
+                        <p class="customer-detail" th:if="${customerPhone != null and !customerPhone.isEmpty()}"
+                            th:text="${customerPhone}">Teléfono</p>
+                        <p class="customer-detail" th:if="${customerAddress != null and !customerAddress.isEmpty()}"
+                            th:text="${customerAddress}">Dirección</p>
+                    </td>
+                    <td style="width: 50%;">
+                        <table class="detail-row">
+                            <tr>
+                                <td class="detail-label">Nº Orden</td>
+                                <td class="detail-value-mono" th:text="${invoice.orderNumber}">NX-00001</td>
+                            </tr>
+                        </table>
+                        <table class="detail-row">
+                            <tr>
+                                <td class="detail-label">Fecha emisión</td>
+                                <td class="detail-value" th:text="${issueDateFmt}">07 de abril de 2026</td>
+                            </tr>
+                        </table>
+                        <table class="detail-row" th:if="${dueDateFmt != null}">
+                            <tr>
+                                <td class="detail-label">Fecha vencimiento</td>
+                                <td th:class="${statusKey == 'overdue'} ? 'detail-value-red' : 'detail-value'"
+                                    th:text="${dueDateFmt}">07 de mayo de 2026</td>
+                            </tr>
+                        </table>
+                        <table class="detail-row"
+                            th:if="${paymentMethodLabel != null and !paymentMethodLabel.isEmpty()}">
+                            <tr>
+                                <td class="detail-label">Método de pago</td>
+                                <td class="detail-value" th:text="${paymentMethodLabel}">Tarjeta</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- ── Line items ─────────────────────────────── -->
+        <div class="items-section">
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Descripción</th>
+                        <th class="center" style="width: 60px;">Cantidad</th>
+                        <th class="right" style="width: 90px;">Precio unit.</th>
+                        <th class="right" style="width: 90px;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="line : ${invoice.lines}">
+                        <td>
+                            <p class="item-name" th:text="${line['name']}">Producto</p>
+                            <p class="item-sku" th:if="${line['sku'] != null}" th:text="${line['sku']}">SKU</p>
+                        </td>
+                        <td class="center" th:text="${line['quantity']}">1</td>
+                        <td class="right">$<span
+                                th:text="${#numbers.formatDecimal(line['unitPrice'], 1, 2)}">0.00</span></td>
+                        <td class="right-bold">$<span
+                                th:text="${#numbers.formatDecimal(line['total'], 1, 2)}">0.00</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ── Totals ─────────────────────────────────── -->
+        <div class="totals-section">
+            <div class="totals-wrapper">
+                <table class="totals-table">
+                    <tr>
+                        <td class="totals-label">Subtotal</td>
+                        <td class="totals-value">$<span
+                                th:text="${#numbers.formatDecimal(invoice.subtotal, 1, 2)}">0.00</span></td>
+                    </tr>
+                    <tr>
+                        <td class="totals-label">Envío</td>
+                        <td th:if="${invoice.shipping.doubleValue() == 0}" class="totals-value-green">Gratuito</td>
+                        <td th:if="${invoice.shipping.doubleValue() != 0}" class="totals-value">$<span
+                                th:text="${#numbers.formatDecimal(invoice.shipping, 1, 2)}">0.00</span></td>
+                    </tr>
+                    <tr>
+                        <td class="totals-label">IVA (10%)</td>
+                        <td class="totals-value">$<span
+                                th:text="${#numbers.formatDecimal(invoice.tax, 1, 2)}">0.00</span></td>
+                    </tr>
+                    <tr th:if="${invoice.discountAmount != null and invoice.discountAmount.doubleValue() > 0}">
+                        <td class="totals-label">Cupón de descuento</td>
+                        <td class="totals-value-green">−$<span
+                                th:text="${#numbers.formatDecimal(invoice.discountAmount, 1, 2)}">0.00</span></td>
+                    </tr>
+                    <tr th:if="${invoice.giftCardAmount != null and invoice.giftCardAmount.doubleValue() > 0}">
+                        <td class="totals-label">Tarjeta de regalo</td>
+                        <td class="totals-value-green">−$<span
+                                th:text="${#numbers.formatDecimal(invoice.giftCardAmount, 1, 2)}">0.00</span></td>
+                    </tr>
+                    <tr th:if="${invoice.loyaltyDiscount != null and invoice.loyaltyDiscount.doubleValue() > 0}">
+                        <td class="totals-label">Puntos de lealtad</td>
+                        <td class="totals-value-green">−$<span
+                                th:text="${#numbers.formatDecimal(invoice.loyaltyDiscount, 1, 2)}">0.00</span></td>
+                    </tr>
+                    <tr class="grand-total-row">
+                        <td class="grand-total-label">Total</td>
+                        <td class="grand-total-value">$<span
+                                th:text="${#numbers.formatDecimal(invoice.total, 1, 2)}">0.00</span></td>
+                    </tr>
+                    <tr class="charged-row" th:if="${chargedVia != null}">
+                        <td class="charged-label" th:text="'Cobrado vía ' + ${paymentMethodLabel}">Cobrado vía Tarjeta
+                        </td>
+                        <td class="charged-value">$<span
+                                th:text="${#numbers.formatDecimal(chargedVia, 1, 2)}">0.00</span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── Notes ──────────────────────────────────── -->
+        <div class="notes-section" th:if="${invoice.notes != null and !invoice.notes.isEmpty()}">
+            <p class="notes-label">Notas</p>
+            <p class="notes-text" th:text="${invoice.notes}">Nota</p>
+        </div>
+
+        <!-- ── Footer ─────────────────────────────────── -->
+        <div class="footer">
+            <table class="footer-table">
+                <tr>
+                    <td style="width: 70%;">
+                        <p class="legal-text">NX036 Commerce S.L. · CIF: B-12345678 · info@nx036.com</p>
+                        <p class="legal-text" th:text="${invoice.invoiceNumber} + ' · Página 1 de 1'">FAC-NX-00001 ·
+                            Página 1 de 1</p>
+                        <p class="legal-note">Documento generado electrónicamente. Escanea el código QR para verificar
+                            la autenticidad de esta factura.</p>
+                    </td>
+                    <td style="width: 30%; text-align: center;">
+                        <div class="qr-block">
+                            <div class="qr-container">
+                                <img th:src="${qrCodeUrl}" width="80" height="80" alt="QR" />
+                            </div>
+                            <p class="qr-label">Verificar factura</p>
+                            <p class="qr-invoice" th:text="${invoice.invoiceNumber}">FAC-NX-00001</p>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+    </div>
+</body>
+
+</html>

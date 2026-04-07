@@ -25,6 +25,9 @@ public class Invoice {
     private BigDecimal shipping;
     private BigDecimal tax;
     private BigDecimal total;
+    private BigDecimal discountAmount;
+    private BigDecimal giftCardAmount;
+    private BigDecimal loyaltyDiscount;
     private String paymentMethod;
     private Map<String, Object> customerSnapshot;
     private List<Map<String, Object>> lines;

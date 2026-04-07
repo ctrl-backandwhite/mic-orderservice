@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -70,5 +71,12 @@ public class CouponRepositoryImpl implements CouponRepository {
     public CouponUsage saveUsage(CouponUsage usage) {
         usage.setId(UUID.randomUUID().toString());
         return mapper.toUsageDomain(usageJpa.save(mapper.toUsageEntity(usage)));
+    }
+
+    @Override
+    public List<CouponUsage> findUsagesByCouponId(String couponId) {
+        return usageJpa.findByCouponIdOrderByUsedAtDesc(couponId).stream()
+                .map(mapper::toUsageDomain)
+                .toList();
     }
 }

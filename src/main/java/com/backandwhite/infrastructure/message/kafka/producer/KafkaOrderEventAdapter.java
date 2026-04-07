@@ -11,6 +11,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Map;
 
 @Log4j2
 @Service
@@ -202,6 +203,24 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
                                 .setTimestamp(now())
                                 .build();
                 send(AppConstants.KAFKA_TOPIC_STOCK_DEDUCTED, orderId, event);
+        }
+
+        // ── Notification Events ───────────────────────────────────────────────────
+
+        @Override
+        public void publishInvoiceEmail(String email, String subject, String templateName,
+                        Map<String, String> variables) {
+                if (email == null || email.isBlank()) {
+                        log.warn("::> Cannot publish invoice email: email is null/blank");
+                        return;
+                }
+                EmailNotificationEvent event = EmailNotificationEvent.newBuilder()
+                                .setRecipient(email)
+                                .setSubject(subject)
+                                .setTemplateName(templateName)
+                                .setVariables(variables)
+                                .build();
+                send(AppConstants.KAFKA_TOPIC_NOTIFICATION_EMAIL, email, event);
         }
 
         // ── Common ───────────────────────────────────────────────────────────────

@@ -8,11 +8,11 @@ public interface CartUseCase {
 
     Cart getOrCreateCart(String userId, String sessionId);
 
-    CartItem addItem(String userId, String sessionId, CartItem item);
+    Cart addItem(String userId, String sessionId, CartItem item);
 
-    CartItem updateItemQuantity(String itemId, int quantity);
+    Cart updateItemQuantity(String itemId, int quantity);
 
-    void removeItem(String itemId);
+    Cart removeItem(String userId, String sessionId, String itemId);
 
     void clearCart(String userId, String sessionId);
 

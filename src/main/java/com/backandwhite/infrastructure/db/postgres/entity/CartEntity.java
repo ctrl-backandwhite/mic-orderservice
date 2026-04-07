@@ -38,6 +38,7 @@ public class CartEntity extends AuditableEntity {
     private Instant expiresAt;
 
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("createdAt ASC")
     @Builder.Default
     private List<CartItemEntity> items = new ArrayList<>();
 }

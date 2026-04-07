@@ -2,8 +2,10 @@ package com.backandwhite.application.usecase;
 
 import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.domain.model.Coupon;
+import com.backandwhite.domain.model.CouponUsage;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 public interface CouponUseCase {
@@ -33,4 +35,9 @@ public interface CouponUseCase {
      * Applies a coupon to an order — increments usage, records user usage.
      */
     void applyCouponToOrder(String couponId, String userId, String orderId);
+
+    /**
+     * Returns the usage history for a coupon.
+     */
+    List<CouponUsage> findUsages(String couponId);
 }

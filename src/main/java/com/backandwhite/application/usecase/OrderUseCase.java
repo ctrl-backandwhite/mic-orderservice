@@ -5,13 +5,17 @@ import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderStats;
 import com.backandwhite.domain.valueobject.OrderStatus;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 public interface OrderUseCase {
         Order createFromCart(String userId, String sessionId, Map<String, Object> shippingAddress,
-                        Map<String, Object> billingAddress, String paymentMethod, String couponCode, String notes);
+                        Map<String, Object> billingAddress, String paymentMethod, String couponCode,
+                        String giftCardCode, BigDecimal giftCardAmount,
+                        Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount,
+                        String notes);
 
-        Order confirmOrder(String orderId, String userId);
+        Order confirmOrder(String orderId, String userId, String email);
 
         Order findById(String id);
 

@@ -48,4 +48,13 @@ public interface OrderEventPort {
 
     void publishStockDeducted(String productId, String variantId,
             String orderId, int quantity);
+    // ── Notification Events ──────────────────────────────────────────────
+
+    /**
+     * Publishes an email notification event with the invoice data to the
+     * notification.email.send topic so the notification service renders
+     * and delivers the invoice email.
+     */
+    void publishInvoiceEmail(String email, String subject, String templateName,
+            java.util.Map<String, String> variables);
 }

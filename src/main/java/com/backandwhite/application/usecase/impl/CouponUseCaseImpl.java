@@ -5,6 +5,8 @@ import com.backandwhite.application.usecase.CouponUseCase;
 import com.backandwhite.domain.model.Coupon;
 import com.backandwhite.domain.model.CouponUsage;
 import com.backandwhite.domain.repository.CouponRepository;
+
+import java.util.List;
 import com.backandwhite.domain.valueobject.CouponType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -86,6 +88,9 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional(readOnly = true)
     public BigDecimal validate(String code, BigDecimal cartSubtotal, String userId) {
+        if (cartSubtotal == null) {
+            throw new IllegalArgumentException("cartSubtotal is required");
+        }
         Coupon coupon = couponRepository.findByCode(code)
                 .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", code));
 
@@ -106,9 +111,10 @@ public class CouponUseCaseImpl implements CouponUseCase {
         if (coupon.getMinOrderAmount() != null && cartSubtotal.compareTo(coupon.getMinOrderAmount()) < 0) {
             throw COUPON_MIN_ORDER.toBusinessException(coupon.getMinOrderAmount());
         }
-        if (userId != null && coupon.getMaxUsesPerUser() != null) {
+        if (userId != null) {
+            int maxPerUser = coupon.getMaxUsesPerUser() != null ? coupon.getMaxUsesPerUser() : 1;
             int userUsages = couponRepository.countUsagesByUser(coupon.getId(), userId);
-            if (userUsages >= coupon.getMaxUsesPerUser()) {
+            if (userUsages >= maxPerUser) {
                 throw COUPON_USER_LIMIT.toBusinessException();
             }
         }
@@ -128,6 +134,14 @@ public class CouponUseCaseImpl implements CouponUseCase {
                     .usedAt(Instant.now())
                     .build());
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CouponUsage> findUsages(String couponId) {
+        couponRepository.findById(couponId)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", couponId));
+        return couponRepository.findUsagesByCouponId(couponId);
     }
 
     private BigDecimal calculateDiscount(Coupon coupon, BigDecimal subtotal) {

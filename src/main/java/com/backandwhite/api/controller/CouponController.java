@@ -4,6 +4,7 @@ import com.backandwhite.api.dto.PaginationDtoOut;
 import com.backandwhite.api.dto.in.CouponDtoIn;
 import com.backandwhite.api.dto.in.ValidateCouponDtoIn;
 import com.backandwhite.api.dto.out.CouponDtoOut;
+import com.backandwhite.api.dto.out.CouponUsageDtoOut;
 import com.backandwhite.api.dto.out.CouponValidationDtoOut;
 import com.backandwhite.api.mapper.CouponApiMapper;
 import com.backandwhite.api.util.PageableUtils;
@@ -23,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -116,6 +118,21 @@ public class CouponController {
             @Parameter(description = "IDdelcupón") @PathVariable String id) {
         couponUseCase.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/usages")
+    @Operation(summary = "[Admin] Historial de uso de un cupón")
+    public ResponseEntity<List<CouponUsageDtoOut>> findUsages(
+            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+            @Parameter(description = "ID del cupón") @PathVariable String id) {
+        var usages = couponUseCase.findUsages(id).stream()
+                .map(u -> CouponUsageDtoOut.builder()
+                        .userId(u.getUserId())
+                        .orderId(u.getOrderId())
+                        .usedAt(u.getUsedAt())
+                        .build())
+                .toList();
+        return ResponseEntity.ok(usages);
     }
 
     @PatchMapping("/{id}/toggle")

@@ -29,6 +29,18 @@ public class CreateOrderDtoIn {
     @Schema(description = "Código de cupón", example = "WELCOME10")
     private String couponCode;
 
+    @Schema(description = "Código de tarjeta de regalo")
+    private String giftCardCode;
+
+    @Schema(description = "Monto cubierto por tarjeta de regalo", example = "12.08")
+    private java.math.BigDecimal giftCardAmount;
+
+    @Schema(description = "Puntos de lealtad canjeados", example = "500")
+    private Integer loyaltyPointsUsed;
+
+    @Schema(description = "Descuento monetario por puntos de lealtad", example = "5.00")
+    private java.math.BigDecimal loyaltyDiscount;
+
     @Schema(description = "Notas del pedido")
     private String notes;
 }

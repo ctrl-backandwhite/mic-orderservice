@@ -59,6 +59,18 @@ public class InvoiceEntity extends AuditableEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal total;
 
+    @Column(name = "discount_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "gift_card_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal giftCardAmount = BigDecimal.ZERO;
+
+    @Column(name = "loyalty_discount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal loyaltyDiscount = BigDecimal.ZERO;
+
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
 

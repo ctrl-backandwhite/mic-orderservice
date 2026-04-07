@@ -51,8 +51,28 @@ public class OrderRepositoryImpl implements OrderRepository {
 
     @Override
     public Order update(Order order) {
-        OrderEntity entity = mapper.toEntity(order);
-        return mapper.toDomain(orderJpa.save(entity));
+        OrderEntity existing = orderJpa.findById(order.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + order.getId()));
+
+        // Update only scalar fields, preserve items & statusHistory
+        existing.setStatus(order.getStatus() != null ? order.getStatus() : existing.getStatus());
+        existing.setSubtotal(order.getSubtotal());
+        existing.setShippingCost(order.getShippingCost());
+        existing.setTaxAmount(order.getTaxAmount());
+        existing.setDiscountAmount(order.getDiscountAmount());
+        existing.setTotal(order.getTotal());
+        existing.setCouponId(order.getCouponId());
+        existing.setGiftCardCode(order.getGiftCardCode());
+        existing.setGiftCardAmount(order.getGiftCardAmount());
+        existing.setLoyaltyPointsUsed(order.getLoyaltyPointsUsed());
+        existing.setLoyaltyDiscount(order.getLoyaltyDiscount());
+        existing.setShippingAddress(order.getShippingAddress());
+        existing.setBillingAddress(order.getBillingAddress());
+        existing.setPaymentMethod(order.getPaymentMethod());
+        existing.setPaymentRef(order.getPaymentRef());
+        existing.setNotes(order.getNotes());
+
+        return mapper.toDomain(orderJpa.save(existing));
     }
 
     @Override
