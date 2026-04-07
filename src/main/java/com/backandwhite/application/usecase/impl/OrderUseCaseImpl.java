@@ -577,7 +577,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         vars.put("giftCard", fmt(invoice.getGiftCardAmount()));
         vars.put("loyaltyDiscount", fmt(invoice.getLoyaltyDiscount()));
         vars.put("total", fmt(invoice.getTotal()));
-        vars.put("currency", "EUR");
+        vars.put("currency", "USD");
 
         // Invoice download URL & QR code
         String invoiceUrl = storeUrl + "/api/v1/invoices/order/" + order.getId() + "/pdf";
@@ -614,9 +614,9 @@ public class OrderUseCaseImpl implements OrderUseCase {
                     .append("<td align=\"center\" style=\"padding:12px 0;font-size:14px;color:#334155;width:50px;\">")
                     .append(escHtml(qty)).append("</td>")
                     .append("<td align=\"right\" style=\"padding:12px 0;font-size:14px;color:#334155;width:80px;\">")
-                    .append(escHtml(price)).append(" <span style=\"font-size:11px;color:#94a3b8;\">EUR</span></td>")
+                    .append(escHtml(price)).append(" <span style=\"font-size:11px;color:#94a3b8;\">USD</span></td>")
                     .append("<td align=\"right\" style=\"padding:12px 0;font-size:14px;color:#1e293b;font-weight:500;width:80px;\">")
-                    .append(escHtml(total)).append(" <span style=\"font-size:11px;color:#94a3b8;\">EUR</span></td>")
+                    .append(escHtml(total)).append(" <span style=\"font-size:11px;color:#94a3b8;\">USD</span></td>")
                     .append("</tr></table></td></tr>");
         }
         return sb.toString();
