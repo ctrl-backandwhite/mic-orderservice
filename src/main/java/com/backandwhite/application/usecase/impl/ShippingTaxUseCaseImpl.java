@@ -111,21 +111,13 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     }
 
     /**
-     * Map ISO 3166-1 alpha-2 country code to applicable shipping zone names.
-     * For Spain, returns all sub-zones so the user can choose.
+     * Resolve country code to zone identifier used in shipping_rules.zone.
+     * Zones now store the ISO 3166-1 alpha-2 country code directly.
      */
     private List<String> resolveZones(String countryCode) {
-        if (countryCode == null) return List.of("Resto del mundo");
-        return switch (countryCode.toUpperCase()) {
-            case "ES" -> List.of("España Peninsular", "Baleares", "Canarias");
-            case "US" -> List.of("Estados Unidos");
-            case "PT" -> List.of("Portugal");
-            case "GB" -> List.of("Reino Unido");
-            case "FR", "DE", "IT", "NL", "BE", "AT", "IE", "FI", "SE", "DK",
-                 "PL", "CZ", "SK", "HU", "RO", "BG", "HR", "SI", "LT", "LV",
-                 "EE", "CY", "MT", "LU", "GR" -> List.of("Unión Europea");
-            default -> List.of("Resto del mundo");
-        };
+        if (countryCode == null || countryCode.isBlank())
+            return List.of();
+        return List.of(countryCode.toUpperCase());
     }
 
     @Override
