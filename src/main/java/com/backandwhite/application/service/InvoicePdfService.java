@@ -1,5 +1,6 @@
 package com.backandwhite.application.service;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.Invoice;
 import com.lowagie.text.DocumentException;
 import lombok.RequiredArgsConstructor;
@@ -74,13 +75,13 @@ public class InvoicePdfService {
         ctx.setVariable("paymentMethodLabel", formatPaymentMethod(invoice.getPaymentMethod()));
 
         // "Charged via" amount (when gift card or loyalty covers part of total)
-        BigDecimal giftCard = invoice.getGiftCardAmount() != null ? invoice.getGiftCardAmount() : BigDecimal.ZERO;
-        BigDecimal loyalty = invoice.getLoyaltyDiscount() != null ? invoice.getLoyaltyDiscount() : BigDecimal.ZERO;
-        if ((giftCard.compareTo(BigDecimal.ZERO) > 0 || loyalty.compareTo(BigDecimal.ZERO) > 0)
+        Money giftCard = invoice.getGiftCardAmount() != null ? invoice.getGiftCardAmount() : Money.zero();
+        Money loyalty = invoice.getLoyaltyDiscount() != null ? invoice.getLoyaltyDiscount() : Money.zero();
+        if ((giftCard.isPositive() || loyalty.isPositive())
                 && invoice.getTotal() != null) {
-            BigDecimal charged = invoice.getTotal().subtract(giftCard).subtract(loyalty);
-            if (charged.compareTo(BigDecimal.ZERO) > 0) {
-                ctx.setVariable("chargedVia", charged);
+            Money charged = invoice.getTotal().subtract(giftCard).subtract(loyalty);
+            if (charged.isPositive()) {
+                ctx.setVariable("chargedVia", charged.getAmount());
             }
         }
 

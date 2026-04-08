@@ -24,6 +24,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -74,7 +75,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
             String paymentMethod, String couponCode,
             String giftCardCode, BigDecimal giftCardAmount,
             Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount,
-            String notes) {
+            String notes, String currencyCode) {
 
         if (shippingAddress == null || shippingAddress.isEmpty()) {
             throw MAX_ADDRESSES_REACHED.toBusinessException();
@@ -100,6 +101,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
                     ci.getProductId(), ci.getVariantId());
             if (verification.isPresent()) {
                 BigDecimal basePrice = verification.get().price();
+                Money basePriceMoney = Money.of(basePrice);
                 String categoryId = verification.get().categoryId();
                 BigDecimal itemWeight = verification.get().weight();
                 productCategoryMap.put(ci.getProductId(), categoryId);
@@ -111,18 +113,16 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 }
 
                 // Apply best campaign discount (server-side — C-02)
-                BigDecimal campaignDiscount = cmsClient.calculateBestCampaignDiscount(
-                        activeCampaigns, ci.getProductId(), categoryId, basePrice);
-                BigDecimal verifiedPrice = basePrice.subtract(campaignDiscount);
-                if (verifiedPrice.compareTo(BigDecimal.ZERO) < 0) {
-                    verifiedPrice = BigDecimal.ZERO;
-                }
+                Money campaignDiscount = cmsClient.calculateBestCampaignDiscount(
+                        activeCampaigns, ci.getProductId(), categoryId, basePriceMoney);
+                Money verifiedPrice = basePriceMoney.subtract(campaignDiscount).floor();
 
-                if (ci.getUnitPrice().compareTo(verifiedPrice) != 0) {
+                if (!ci.getUnitPrice().equals(verifiedPrice)) {
                     log.warn(
                             "Price correction: product={}, variant={}, cart={}, verified={} (base={}, campaign discount={})",
                             ci.getProductId(), ci.getVariantId(),
-                            ci.getUnitPrice(), verifiedPrice, basePrice, campaignDiscount);
+                            ci.getUnitPrice().toPlainString(), verifiedPrice.toPlainString(),
+                            basePriceMoney.toPlainString(), campaignDiscount.toPlainString());
                     ci.setUnitPrice(verifiedPrice);
                 }
             }
@@ -143,13 +143,13 @@ public class OrderUseCaseImpl implements OrderUseCase {
         }
 
         // Recalculate subtotal from verified prices
-        BigDecimal subtotal = cart.getItems().stream()
-                .map(ci -> ci.getUnitPrice().multiply(BigDecimal.valueOf(ci.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        Money subtotal = cart.getItems().stream()
+                .map(ci -> ci.getUnitPrice().multiply(ci.getQuantity()))
+                .reduce(Money.zero(), Money::add);
 
         // 2. Calculate shipping (using real product weight — M-03)
         String country = shippingAddress.getOrDefault("country", "").toString();
-        BigDecimal shippingCost = BigDecimal.ZERO;
+        Money shippingCost = Money.zero();
         List<ShippingRule> options = shippingTaxUseCase.findShippingOptions(country, totalWeight, subtotal);
         if (!options.isEmpty()) {
             shippingCost = options.getFirst().getRate();
@@ -157,11 +157,11 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         // 3. Calculate tax
         String region = shippingAddress.getOrDefault("region", "").toString();
-        BigDecimal taxAmount = shippingTaxUseCase.calculateTax(country, region, subtotal);
+        Money taxAmount = shippingTaxUseCase.calculateTax(country, region, subtotal);
 
         // 4. Apply coupon (with scope filtering for appliesToProducts/Categories —
         // M-05)
-        BigDecimal discountAmount = BigDecimal.ZERO;
+        Money discountAmount = Money.zero();
         String couponId = null;
         boolean freeShipping = false;
 
@@ -174,48 +174,67 @@ public class OrderUseCaseImpl implements OrderUseCase {
             freeShipping = coupon.getType() == CouponType.FREE_SHIPPING;
 
             // Check coupon scope and calculate eligible subtotal (M-05)
-            BigDecimal eligibleSubtotal = calculateEligibleSubtotal(
+            Money eligibleSubtotal = calculateEligibleSubtotal(
                     coupon, cart.getItems(), productCategoryMap);
 
             boolean hasScopeRestrictions = (coupon.getAppliesToProducts() != null
                     && !coupon.getAppliesToProducts().isEmpty())
                     || (coupon.getAppliesToCategories() != null && !coupon.getAppliesToCategories().isEmpty());
 
-            if (hasScopeRestrictions && eligibleSubtotal.compareTo(BigDecimal.ZERO) == 0) {
+            if (hasScopeRestrictions && eligibleSubtotal.isZero()) {
                 throw COUPON_SCOPE_MISMATCH.toBusinessException();
             }
 
             // Calculate discount on eligible subtotal only
-            BigDecimal discountBase = hasScopeRestrictions ? eligibleSubtotal : subtotal;
+            Money discountBase = hasScopeRestrictions ? eligibleSubtotal : subtotal;
             discountAmount = calculateCouponDiscount(coupon, discountBase);
         }
 
         if (freeShipping) {
-            shippingCost = BigDecimal.ZERO;
+            shippingCost = Money.zero();
         }
 
-        BigDecimal total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount);
-        if (total.compareTo(BigDecimal.ZERO) < 0) {
-            total = BigDecimal.ZERO;
+        Money total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount).floor();
+
+        // 4.5 Multi-currency: fetch exchange rate and convert prices if needed
+        String resolvedCurrency = (currencyCode != null && !currencyCode.isBlank()) ? currencyCode.toUpperCase()
+                : "USD";
+        BigDecimal exchangeRate = BigDecimal.ONE;
+        BigDecimal exchangeRateToUsd = BigDecimal.ONE;
+
+        if (!"USD".equals(resolvedCurrency)) {
+            exchangeRate = cmsClient.getExchangeRate(resolvedCurrency);
+            if (exchangeRate.compareTo(BigDecimal.ZERO) > 0 && exchangeRate.compareTo(BigDecimal.ONE) != 0) {
+                exchangeRateToUsd = BigDecimal.ONE.divide(exchangeRate, 8, java.math.RoundingMode.HALF_UP);
+                subtotal = subtotal.multiply(exchangeRate);
+                shippingCost = shippingCost.multiply(exchangeRate);
+                taxAmount = taxAmount.multiply(exchangeRate);
+                discountAmount = discountAmount.multiply(exchangeRate);
+                total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount).floor();
+            }
         }
 
         // 5. Build order items from cart items
+        final BigDecimal fxRate = exchangeRate;
         List<OrderItem> orderItems = cart.getItems().stream()
-                .map(ci -> OrderItem.builder()
-                        .productId(ci.getProductId())
-                        .variantId(ci.getVariantId())
-                        .sku(null)
-                        .productName(ci.getProductName())
-                        .productImage(ci.getProductImage())
-                        .quantity(ci.getQuantity())
-                        .unitPrice(ci.getUnitPrice())
-                        .totalPrice(ci.getUnitPrice().multiply(BigDecimal.valueOf(ci.getQuantity())))
-                        .build())
+                .map(ci -> {
+                    Money up = ci.getUnitPrice().multiply(fxRate);
+                    return OrderItem.builder()
+                            .productId(ci.getProductId())
+                            .variantId(ci.getVariantId())
+                            .sku(null)
+                            .productName(ci.getProductName())
+                            .productImage(ci.getProductImage())
+                            .quantity(ci.getQuantity())
+                            .unitPrice(up)
+                            .totalPrice(up.multiply(ci.getQuantity()))
+                            .build();
+                })
                 .toList();
 
         // 6. Build order
-        BigDecimal gcAmount = giftCardAmount != null ? giftCardAmount : BigDecimal.ZERO;
-        BigDecimal lyDiscount = loyaltyDiscount != null ? loyaltyDiscount : BigDecimal.ZERO;
+        Money gcAmount = Money.of(giftCardAmount);
+        Money lyDiscount = Money.of(loyaltyDiscount);
         int lyPoints = loyaltyPointsUsed != null ? loyaltyPointsUsed : 0;
 
         Order order = Order.builder()
@@ -227,6 +246,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 .taxAmount(taxAmount)
                 .discountAmount(discountAmount)
                 .total(total)
+                .currencyCode(resolvedCurrency)
+                .exchangeRateToUsd(exchangeRateToUsd)
                 .couponId(couponId)
                 .giftCardCode(giftCardCode)
                 .giftCardAmount(gcAmount)
@@ -320,11 +341,11 @@ public class OrderUseCaseImpl implements OrderUseCase {
                     .tax(confirmed.getTaxAmount())
                     .total(confirmed.getTotal())
                     .discountAmount(
-                            confirmed.getDiscountAmount() != null ? confirmed.getDiscountAmount() : BigDecimal.ZERO)
+                            confirmed.getDiscountAmount() != null ? confirmed.getDiscountAmount() : Money.zero())
                     .giftCardAmount(
-                            confirmed.getGiftCardAmount() != null ? confirmed.getGiftCardAmount() : BigDecimal.ZERO)
+                            confirmed.getGiftCardAmount() != null ? confirmed.getGiftCardAmount() : Money.zero())
                     .loyaltyDiscount(
-                            confirmed.getLoyaltyDiscount() != null ? confirmed.getLoyaltyDiscount() : BigDecimal.ZERO)
+                            confirmed.getLoyaltyDiscount() != null ? confirmed.getLoyaltyDiscount() : Money.zero())
                     .paymentMethod(confirmed.getPaymentMethod())
                     .customerSnapshot(customerSnapshot)
                     .lines(invoiceLines)
@@ -499,7 +520,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
      * If the coupon has no scope (appliesToProducts/Categories both empty), returns
      * full subtotal.
      */
-    private BigDecimal calculateEligibleSubtotal(Coupon coupon, List<CartItem> items,
+    private Money calculateEligibleSubtotal(Coupon coupon, List<CartItem> items,
             Map<String, String> productCategoryMap) {
         List<String> scopeProducts = coupon.getAppliesToProducts();
         List<String> scopeCategories = coupon.getAppliesToCategories();
@@ -510,8 +531,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
         if (!hasProductScope && !hasCategoryScope) {
             // No scope restrictions — all items are eligible
             return items.stream()
-                    .map(ci -> ci.getUnitPrice().multiply(BigDecimal.valueOf(ci.getQuantity())))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    .map(ci -> ci.getUnitPrice().multiply(ci.getQuantity()))
+                    .reduce(Money.zero(), Money::add);
         }
 
         return items.stream()
@@ -525,24 +546,23 @@ public class OrderUseCaseImpl implements OrderUseCase {
                     }
                     return false;
                 })
-                .map(ci -> ci.getUnitPrice().multiply(BigDecimal.valueOf(ci.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(ci -> ci.getUnitPrice().multiply(ci.getQuantity()))
+                .reduce(Money.zero(), Money::add);
     }
 
     /**
      * Calculates the discount for a coupon based on the given subtotal.
      * Mirrors the logic in CouponUseCaseImpl.calculateDiscount.
      */
-    private BigDecimal calculateCouponDiscount(Coupon coupon, BigDecimal subtotal) {
+    private Money calculateCouponDiscount(Coupon coupon, Money subtotal) {
         if (coupon.getType() == CouponType.PERCENTAGE) {
-            return subtotal.multiply(coupon.getValue())
-                    .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+            return subtotal.percentage(coupon.getValue().getAmount());
         }
         if (coupon.getType() == CouponType.FIXED) {
             return coupon.getValue().min(subtotal);
         }
         // FREE_SHIPPING — discount is 0, shipping will be zeroed separately
-        return BigDecimal.ZERO;
+        return Money.zero();
     }
 
     /**
@@ -567,7 +587,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         // complexity)
         List<Map<String, Object>> lines = invoice.getLines();
         vars.put("itemCount", String.valueOf(lines != null ? lines.size() : 0));
-        vars.put("linesHtml", buildLinesHtml(lines));
+        vars.put("linesHtml", buildLinesHtml(lines, order.getCurrencyCode() != null ? order.getCurrencyCode() : "USD"));
 
         // Totals
         vars.put("subtotal", fmt(invoice.getSubtotal()));
@@ -577,7 +597,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         vars.put("giftCard", fmt(invoice.getGiftCardAmount()));
         vars.put("loyaltyDiscount", fmt(invoice.getLoyaltyDiscount()));
         vars.put("total", fmt(invoice.getTotal()));
-        vars.put("currency", "USD");
+        vars.put("currency", order.getCurrencyCode() != null ? order.getCurrencyCode() : "USD");
 
         // Invoice download URL & QR code
         String invoiceUrl = storeUrl + "/api/v1/invoices/order/" + order.getId() + "/pdf";
@@ -591,7 +611,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
     /**
      * Builds the HTML for invoice line item rows to be injected via th:utext.
      */
-    private String buildLinesHtml(List<Map<String, Object>> lines) {
+    private String buildLinesHtml(List<Map<String, Object>> lines, String currency) {
         if (lines == null || lines.isEmpty())
             return "";
         var sb = new StringBuilder();
@@ -614,9 +634,11 @@ public class OrderUseCaseImpl implements OrderUseCase {
                     .append("<td align=\"center\" style=\"padding:12px 0;font-size:14px;color:#334155;width:50px;\">")
                     .append(escHtml(qty)).append("</td>")
                     .append("<td align=\"right\" style=\"padding:12px 0;font-size:14px;color:#334155;width:80px;\">")
-                    .append(escHtml(price)).append(" <span style=\"font-size:11px;color:#94a3b8;\">USD</span></td>")
+                    .append(escHtml(price)).append(" <span style=\"font-size:11px;color:#94a3b8;\">")
+                    .append(escHtml(currency)).append("</span></td>")
                     .append("<td align=\"right\" style=\"padding:12px 0;font-size:14px;color:#1e293b;font-weight:500;width:80px;\">")
-                    .append(escHtml(total)).append(" <span style=\"font-size:11px;color:#94a3b8;\">USD</span></td>")
+                    .append(escHtml(total)).append(" <span style=\"font-size:11px;color:#94a3b8;\">")
+                    .append(escHtml(currency)).append("</span></td>")
                     .append("</tr></table></td></tr>");
         }
         return sb.toString();
@@ -631,6 +653,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
     private String fmt(Object value) {
         if (value == null)
             return "0.00";
+        if (value instanceof Money m)
+            return m.toPlainString();
         if (value instanceof BigDecimal bd)
             return bd.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
         return value.toString();

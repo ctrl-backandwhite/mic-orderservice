@@ -10,7 +10,8 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
+import com.backandwhite.common.domain.valueobject.Money;
+
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -29,7 +30,7 @@ public class CartUseCaseImpl implements CartUseCase {
                 : cartRepository.findActiveBySessionId(sessionId);
         return cart.orElse(Cart.builder()
                 .items(new ArrayList<>())
-                .subtotal(BigDecimal.ZERO)
+                .subtotal(Money.zero())
                 .itemCount(0)
                 .build());
     }
@@ -95,7 +96,7 @@ public class CartUseCaseImpl implements CartUseCase {
         String cartId = item.getCartId();
         cartRepository.removeItem(itemId);
         return cartRepository.findById(cartId)
-                .orElse(Cart.builder().items(new ArrayList<>()).subtotal(BigDecimal.ZERO).itemCount(0).build());
+                .orElse(Cart.builder().items(new ArrayList<>()).subtotal(Money.zero()).itemCount(0).build());
     }
 
     @Override
@@ -119,7 +120,7 @@ public class CartUseCaseImpl implements CartUseCase {
 
         if (anonCart.isEmpty()) {
             return userCart
-                    .orElse(Cart.builder().items(new ArrayList<>()).subtotal(BigDecimal.ZERO).itemCount(0).build());
+                    .orElse(Cart.builder().items(new ArrayList<>()).subtotal(Money.zero()).itemCount(0).build());
         }
 
         Cart target = userCart.orElseGet(() -> {

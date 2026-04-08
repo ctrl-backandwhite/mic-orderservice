@@ -1,5 +1,7 @@
 package com.backandwhite.infrastructure.db.postgres.entity;
 
+import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.common.domain.valueobject.MoneyConverter;
 import com.backandwhite.common.infrastructure.entity.AuditableEntity;
 import com.backandwhite.domain.valueobject.InvoiceStatus;
 import jakarta.persistence.*;
@@ -47,29 +49,36 @@ public class InvoiceEntity extends AuditableEntity {
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal subtotal;
+    private Money subtotal;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal shipping;
+    private Money shipping;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal tax;
+    private Money tax;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal total;
+    private Money total;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "discount_amount", nullable = false, precision = 12, scale = 2)
     @Builder.Default
-    private BigDecimal discountAmount = BigDecimal.ZERO;
+    private Money discountAmount = Money.zero();
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "gift_card_amount", nullable = false, precision = 12, scale = 2)
     @Builder.Default
-    private BigDecimal giftCardAmount = BigDecimal.ZERO;
+    private Money giftCardAmount = Money.zero();
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "loyalty_discount", nullable = false, precision = 12, scale = 2)
     @Builder.Default
-    private BigDecimal loyaltyDiscount = BigDecimal.ZERO;
+    private Money loyaltyDiscount = Money.zero();
 
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;

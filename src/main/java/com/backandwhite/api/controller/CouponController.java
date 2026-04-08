@@ -13,6 +13,7 @@ import com.backandwhite.application.usecase.CouponUseCase;
 import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.common.security.annotation.NxAdmin;
 import com.backandwhite.common.security.annotation.NxUser;
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.Coupon;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -42,10 +43,10 @@ public class CouponController {
             @Parameter(description = "IDdelusuario") @RequestHeader(value = "X-Auth-Subject", required = false) String userId,
             @Valid @RequestBody ValidateCouponDtoIn dto) {
         try {
-            BigDecimal discount = couponUseCase.validate(dto.getCode(), dto.getCartSubtotal(), userId);
+            Money discount = couponUseCase.validate(dto.getCode(), Money.of(dto.getCartSubtotal()), userId);
             return ResponseEntity.ok(CouponValidationDtoOut.builder()
                     .valid(true)
-                    .discount(discount)
+                    .discount(discount.getAmount())
                     .message("Cupónválido")
                     .build());
         } catch (Exception e) {

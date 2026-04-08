@@ -1,9 +1,9 @@
 package com.backandwhite.domain.model;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.valueobject.CartStatus;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -19,7 +19,7 @@ public class Cart {
     private CartStatus status;
     private Instant expiresAt;
     private List<CartItem> items;
-    private BigDecimal subtotal;
+    private Money subtotal;
     private int itemCount;
     private Instant createdAt;
     private Instant updatedAt;

@@ -3,7 +3,7 @@ package com.backandwhite.domain.model;
 import com.backandwhite.domain.valueobject.CouponType;
 import lombok.*;
 
-import java.math.BigDecimal;
+import com.backandwhite.common.domain.valueobject.Money;
 import java.time.Instant;
 import java.util.List;
 
@@ -16,8 +16,8 @@ public class Coupon {
     private String id;
     private String code;
     private CouponType type;
-    private BigDecimal value;
-    private BigDecimal minOrderAmount;
+    private Money value;
+    private Money minOrderAmount;
     private Integer maxUses;
     private int usedCount;
     private Integer maxUsesPerUser;

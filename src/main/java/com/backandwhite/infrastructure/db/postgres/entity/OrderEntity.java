@@ -1,5 +1,7 @@
 package com.backandwhite.infrastructure.db.postgres.entity;
 
+import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.common.domain.valueobject.MoneyConverter;
 import com.backandwhite.common.infrastructure.entity.AuditableEntity;
 import com.backandwhite.domain.valueobject.OrderStatus;
 import jakarta.persistence.*;
@@ -37,20 +39,25 @@ public class OrderEntity extends AuditableEntity {
     @Column(length = 30, nullable = false)
     private OrderStatus status;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal subtotal;
+    private Money subtotal;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "shipping_cost", nullable = false, precision = 12, scale = 2)
-    private BigDecimal shippingCost;
+    private Money shippingCost;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "tax_amount", nullable = false, precision = 12, scale = 2)
-    private BigDecimal taxAmount;
+    private Money taxAmount;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "discount_amount", nullable = false, precision = 12, scale = 2)
-    private BigDecimal discountAmount;
+    private Money discountAmount;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal total;
+    private Money total;
 
     @Column(name = "coupon_id", length = 64)
     private String couponId;
@@ -58,17 +65,19 @@ public class OrderEntity extends AuditableEntity {
     @Column(name = "gift_card_code", length = 50)
     private String giftCardCode;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "gift_card_amount", nullable = false, precision = 12, scale = 2)
     @Builder.Default
-    private BigDecimal giftCardAmount = BigDecimal.ZERO;
+    private Money giftCardAmount = Money.zero();
 
     @Column(name = "loyalty_points_used", nullable = false)
     @Builder.Default
     private Integer loyaltyPointsUsed = 0;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "loyalty_discount", nullable = false, precision = 12, scale = 2)
     @Builder.Default
-    private BigDecimal loyaltyDiscount = BigDecimal.ZERO;
+    private Money loyaltyDiscount = Money.zero();
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "shipping_address", nullable = false, columnDefinition = "jsonb")
@@ -80,6 +89,14 @@ public class OrderEntity extends AuditableEntity {
 
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
+
+    @Column(name = "currency_code", nullable = false, length = 3)
+    @Builder.Default
+    private String currencyCode = "USD";
+
+    @Column(name = "exchange_rate_to_usd", nullable = false, precision = 18, scale = 8)
+    @Builder.Default
+    private BigDecimal exchangeRateToUsd = BigDecimal.ONE;
 
     @Column(name = "payment_ref", length = 255)
     private String paymentRef;

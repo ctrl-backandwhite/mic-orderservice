@@ -1,5 +1,6 @@
 package com.backandwhite.domain.model;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.valueobject.OrderStatus;
 import lombok.*;
 
@@ -18,19 +19,21 @@ public class Order {
     private String orderNumber;
     private String userId;
     private OrderStatus status;
-    private BigDecimal subtotal;
-    private BigDecimal shippingCost;
-    private BigDecimal taxAmount;
-    private BigDecimal discountAmount;
-    private BigDecimal total;
+    private Money subtotal;
+    private Money shippingCost;
+    private Money taxAmount;
+    private Money discountAmount;
+    private Money total;
     private String couponId;
     private String giftCardCode;
-    private BigDecimal giftCardAmount;
+    private Money giftCardAmount;
     private Integer loyaltyPointsUsed;
-    private BigDecimal loyaltyDiscount;
+    private Money loyaltyDiscount;
     private Map<String, Object> shippingAddress;
     private Map<String, Object> billingAddress;
     private String paymentMethod;
+    private String currencyCode;
+    private BigDecimal exchangeRateToUsd;
     private String paymentRef;
     private String notes;
     private List<OrderItem> items;

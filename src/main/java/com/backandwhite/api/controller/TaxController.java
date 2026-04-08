@@ -11,6 +11,7 @@ import com.backandwhite.application.usecase.ShippingTaxUseCase;
 import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.common.security.annotation.NxAdmin;
 import com.backandwhite.common.security.annotation.NxPublic;
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.TaxRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,11 +38,12 @@ public class TaxController {
             @Parameter(description = "País", example = "US") @RequestParam String country,
             @Parameter(description = "Región/estado", example = "CA") @RequestParam(required = false) String region,
             @Parameter(description = "Subtotal", example = "99.99") @RequestParam BigDecimal subtotal) {
-        BigDecimal taxAmount = shippingTaxUseCase.calculateTax(country, region, subtotal);
+        Money subtotalMoney = Money.of(subtotal);
+        Money taxAmount = shippingTaxUseCase.calculateTax(country, region, subtotalMoney);
         return ResponseEntity.ok(TaxCalculationDtoOut.builder()
                 .subtotal(subtotal)
-                .taxAmount(taxAmount)
-                .totalWithTax(subtotal.add(taxAmount))
+                .taxAmount(taxAmount.getAmount())
+                .totalWithTax(subtotalMoney.add(taxAmount).getAmount())
                 .build());
     }
 

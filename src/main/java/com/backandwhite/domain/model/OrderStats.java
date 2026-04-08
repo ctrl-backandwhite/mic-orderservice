@@ -1,8 +1,7 @@
 package com.backandwhite.domain.model;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import lombok.*;
-
-import java.math.BigDecimal;
 
 @Data
 @With
@@ -16,6 +15,6 @@ public class OrderStats {
     private long shippedOrders;
     private long deliveredOrders;
     private long cancelledOrders;
-    private BigDecimal totalRevenue;
-    private BigDecimal avgOrderValue;
+    private Money totalRevenue;
+    private Money avgOrderValue;
 }

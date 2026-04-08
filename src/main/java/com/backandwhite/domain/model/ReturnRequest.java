@@ -3,7 +3,7 @@ package com.backandwhite.domain.model;
 import com.backandwhite.domain.valueobject.ReturnStatus;
 import lombok.*;
 
-import java.math.BigDecimal;
+import com.backandwhite.common.domain.valueobject.Money;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +20,7 @@ public class ReturnRequest {
     private ReturnStatus status;
     private String reason;
     private List<Map<String, Object>> items;
-    private BigDecimal refundAmount;
+    private Money refundAmount;
     private String orderNumber;
     private Instant createdAt;
     private Instant updatedAt;

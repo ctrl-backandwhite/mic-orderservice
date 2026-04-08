@@ -13,6 +13,7 @@ import com.backandwhite.application.usecase.ShippingTaxUseCase;
 import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.common.security.annotation.NxAdmin;
 import com.backandwhite.common.security.annotation.NxPublic;
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.ShippingCarrier;
 import com.backandwhite.domain.model.ShippingRule;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,14 +44,14 @@ public class ShippingController {
             @Parameter(description = "País", example = "US") @RequestParam String country,
             @Parameter(description = "Peso (kg)", example = "1.5") @RequestParam(defaultValue = "1") BigDecimal weight,
             @Parameter(description = "Subtotaldelpedido", example = "99.99") @RequestParam BigDecimal subtotal) {
-        List<ShippingRule> rules = shippingTaxUseCase.findShippingOptions(country, weight, subtotal);
+        List<ShippingRule> rules = shippingTaxUseCase.findShippingOptions(country, weight, Money.of(subtotal));
         List<ShippingOptionsDtoOut.ShippingOptionDto> options = rules.stream()
                 .map(r -> ShippingOptionsDtoOut.ShippingOptionDto.builder()
                         .ruleId(r.getId())
                         .carrierName(r.getCarrierName())
-                        .rate(r.getRate())
+                        .rate(r.getRate().getAmount())
                         .estimatedDays(r.getEstimatedDays())
-                        .freeShipping(r.getRate().compareTo(BigDecimal.ZERO) == 0)
+                        .freeShipping(r.getRate().isZero())
                         .build())
                 .toList();
         return ResponseEntity.ok(ShippingOptionsDtoOut.builder().options(options).build());

@@ -1,6 +1,7 @@
 package com.backandwhite.domain.repository;
 
 import com.backandwhite.domain.model.ShippingRule;
+import com.backandwhite.common.domain.valueobject.Money;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -18,7 +19,7 @@ public interface ShippingRuleRepository {
 
     Page<ShippingRule> findAll(Map<String, Object> filters, Pageable pageable);
 
-    List<ShippingRule> findOptions(String country, BigDecimal weight, BigDecimal subtotal);
+    List<ShippingRule> findOptions(String country, BigDecimal weight, Money subtotal);
 
     void delete(String id);
 }

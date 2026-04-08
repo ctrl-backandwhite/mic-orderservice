@@ -1,5 +1,7 @@
 package com.backandwhite.infrastructure.db.postgres.entity;
 
+import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.common.domain.valueobject.MoneyConverter;
 import com.backandwhite.common.infrastructure.entity.AuditableEntity;
 import com.backandwhite.domain.valueobject.ReturnStatus;
 import jakarta.persistence.*;
@@ -47,6 +49,7 @@ public class ReturnRequestEntity extends AuditableEntity {
     @Column(nullable = false, columnDefinition = "jsonb")
     private List<Map<String, Object>> items;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "refund_amount", precision = 12, scale = 2)
-    private BigDecimal refundAmount;
+    private Money refundAmount;
 }

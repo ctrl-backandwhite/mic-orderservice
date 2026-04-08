@@ -1,5 +1,6 @@
 package com.backandwhite.infrastructure.db.postgres.repository.impl;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderStats;
 import com.backandwhite.domain.model.OrderStatusHistory;
@@ -115,9 +116,10 @@ public class OrderRepositoryImpl implements OrderRepository {
         long delivered = orderJpa.countDelivered();
         long cancelled = orderJpa.countCancelled();
         BigDecimal revenue = orderJpa.sumTotalRevenue();
-        BigDecimal avg = total > 0
-                ? revenue.divide(BigDecimal.valueOf(total - cancelled), 2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+        Money totalRevenue = Money.of(revenue);
+        Money avg = (total - cancelled) > 0
+                ? totalRevenue.divide(BigDecimal.valueOf(total - cancelled))
+                : Money.zero();
 
         return OrderStats.builder()
                 .totalOrders(total)
@@ -126,7 +128,7 @@ public class OrderRepositoryImpl implements OrderRepository {
                 .shippedOrders(shipped)
                 .deliveredOrders(delivered)
                 .cancelledOrders(cancelled)
-                .totalRevenue(revenue)
+                .totalRevenue(totalRevenue)
                 .avgOrderValue(avg)
                 .build();
     }

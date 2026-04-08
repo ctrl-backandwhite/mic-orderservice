@@ -3,6 +3,7 @@ package com.backandwhite.application.usecase;
 import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.domain.model.Coupon;
 import com.backandwhite.domain.model.CouponUsage;
+import com.backandwhite.common.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -24,7 +25,7 @@ public interface CouponUseCase {
     /**
      * Validates a coupon and returns the calculated discount amount.
      */
-    BigDecimal validate(String code, BigDecimal cartSubtotal, String userId);
+    Money validate(String code, Money cartSubtotal, String userId);
 
     /**
      * Finds a coupon by code.

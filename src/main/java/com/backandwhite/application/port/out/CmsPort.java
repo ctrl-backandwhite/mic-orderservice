@@ -1,5 +1,7 @@
 package com.backandwhite.application.port.out;
 
+import com.backandwhite.common.domain.valueobject.Money;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -17,9 +19,16 @@ public interface CmsPort {
     /**
      * Calculates the best campaign discount for a given product.
      */
-    BigDecimal calculateBestCampaignDiscount(
+    Money calculateBestCampaignDiscount(
             List<Map<String, Object>> campaigns,
             String productId,
             String categoryId,
-            BigDecimal basePrice);
+            Money basePrice);
+
+    /**
+     * Fetches the exchange rate for a currency code from CMS currency-rates API.
+     * Returns the CurrencyLayer rate (USD → target), e.g. 0.926 for EUR.
+     * Returns BigDecimal.ONE if the code is USD or if the call fails.
+     */
+    BigDecimal getExchangeRate(String currencyCode);
 }

@@ -68,6 +68,12 @@ public class OrderDtoOut {
     @Schema(description = "Método de pago")
     private String paymentMethod;
 
+    @Schema(description = "Código de moneda")
+    private String currencyCode;
+
+    @Schema(description = "Tasa de cambio a USD")
+    private java.math.BigDecimal exchangeRateToUsd;
+
     @Schema(description = "Referencia de pago")
     private String paymentRef;
 

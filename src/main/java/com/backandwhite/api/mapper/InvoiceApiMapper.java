@@ -8,7 +8,7 @@ import org.mapstruct.Mapping;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = MoneyMapperHelper.class)
 public interface InvoiceApiMapper {
 
     InvoiceDtoOut toDto(Invoice invoice);

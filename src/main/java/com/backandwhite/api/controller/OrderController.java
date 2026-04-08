@@ -45,7 +45,7 @@ public class OrderController {
                 dto.getPaymentMethod(), dto.getCouponCode(),
                 dto.getGiftCardCode(), dto.getGiftCardAmount(),
                 dto.getLoyaltyPointsUsed(), dto.getLoyaltyDiscount(),
-                dto.getNotes());
+                dto.getNotes(), dto.getCurrencyCode());
         return ResponseEntity.status(HttpStatus.CREATED).body(orderApiMapper.toDto(order));
     }
 

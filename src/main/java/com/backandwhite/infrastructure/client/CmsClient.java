@@ -7,9 +7,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import com.backandwhite.application.port.out.CmsPort;
+import com.backandwhite.common.domain.valueobject.Money;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -63,13 +63,13 @@ public class CmsClient implements CmsPort {
      */
     @Override
     @SuppressWarnings("unchecked")
-    public BigDecimal calculateBestCampaignDiscount(
+    public Money calculateBestCampaignDiscount(
             List<Map<String, Object>> campaigns,
             String productId,
             String categoryId,
-            BigDecimal basePrice) {
+            Money basePrice) {
 
-        BigDecimal bestDiscount = BigDecimal.ZERO;
+        Money bestDiscount = Money.zero();
 
         for (Map<String, Object> campaign : campaigns) {
             boolean applies = false;
@@ -105,23 +105,38 @@ public class CmsClient implements CmsPort {
                     ? new BigDecimal(campaign.get("value").toString())
                     : BigDecimal.ZERO;
 
-            BigDecimal discount = switch (type) {
-                case "PERCENTAGE", "FLASH" ->
-                    basePrice.multiply(value).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                case "FIXED" -> value;
-                default -> BigDecimal.ZERO;
+            Money discount = switch (type) {
+                case "PERCENTAGE", "FLASH" -> basePrice.percentage(value);
+                case "FIXED" -> Money.of(value);
+                default -> Money.zero();
             };
 
-            if (discount.compareTo(bestDiscount) > 0) {
+            if (discount.isGreaterThan(bestDiscount)) {
                 bestDiscount = discount;
             }
         }
 
         // Ensure discount doesn't exceed price
-        if (bestDiscount.compareTo(basePrice) > 0) {
-            bestDiscount = basePrice;
-        }
+        return bestDiscount.min(basePrice);
+    }
 
-        return bestDiscount;
+    @Override
+    @SuppressWarnings("unchecked")
+    public BigDecimal getExchangeRate(String currencyCode) {
+        if (currencyCode == null || currencyCode.isBlank() || "USD".equalsIgnoreCase(currencyCode)) {
+            return BigDecimal.ONE;
+        }
+        try {
+            Map<String, Object> response = restClient.get()
+                    .uri("/api/v1/currency-rates/{code}", currencyCode.toUpperCase())
+                    .retrieve()
+                    .body(Map.class);
+            if (response != null && response.get("rate") != null) {
+                return new BigDecimal(response.get("rate").toString());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch exchange rate for {}: {}", currencyCode, e.getMessage());
+        }
+        return BigDecimal.ONE;
     }
 }

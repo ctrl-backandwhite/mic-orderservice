@@ -41,6 +41,9 @@ public class CreateOrderDtoIn {
     @Schema(description = "Descuento monetario por puntos de lealtad", example = "5.00")
     private java.math.BigDecimal loyaltyDiscount;
 
+    @Schema(description = "Código de moneda (ISO 4217)", example = "USD")
+    private String currencyCode;
+
     @Schema(description = "Notas del pedido")
     private String notes;
 }

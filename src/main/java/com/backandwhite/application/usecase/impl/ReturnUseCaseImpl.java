@@ -1,5 +1,6 @@
 package com.backandwhite.application.usecase.impl;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.ReturnUseCase;
 import com.backandwhite.domain.model.Order;
@@ -99,9 +100,9 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
         if (newStatus == ReturnStatus.APPROVED) {
             Order order = orderRepository.findById(request.getOrderId()).orElse(null);
             String orderRef = order != null ? order.getOrderNumber() : null;
-            BigDecimal refundAmount = request.getRefundAmount() != null
+            Money refundAmount = request.getRefundAmount() != null
                     ? request.getRefundAmount()
-                    : (order != null ? order.getTotal() : BigDecimal.ZERO);
+                    : (order != null ? order.getTotal() : Money.zero());
             orderEventPort.publishOrderReturnApproved(
                     request.getOrderId(), updated.getId(), request.getUserId(), null,
                     orderRef, refundAmount.toPlainString());

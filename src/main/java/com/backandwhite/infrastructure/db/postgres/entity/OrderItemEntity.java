@@ -1,10 +1,10 @@
 package com.backandwhite.infrastructure.db.postgres.entity;
 
+import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.common.domain.valueobject.MoneyConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-
-import java.math.BigDecimal;
 
 @With
 @Getter
@@ -45,9 +45,11 @@ public class OrderItemEntity {
     @Column(nullable = false)
     private int quantity;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
-    private BigDecimal unitPrice;
+    private Money unitPrice;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "total_price", nullable = false, precision = 12, scale = 2)
-    private BigDecimal totalPrice;
+    private Money totalPrice;
 }

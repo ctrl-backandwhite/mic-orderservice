@@ -1,8 +1,7 @@
 package com.backandwhite.domain.model;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import lombok.*;
-
-import java.math.BigDecimal;
 
 @Data
 @With
@@ -18,6 +17,6 @@ public class OrderItem {
     private String productImage;
     private String sku;
     private int quantity;
-    private BigDecimal unitPrice;
-    private BigDecimal totalPrice;
+    private Money unitPrice;
+    private Money totalPrice;
 }

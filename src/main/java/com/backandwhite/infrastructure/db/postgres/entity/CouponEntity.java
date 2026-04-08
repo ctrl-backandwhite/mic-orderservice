@@ -1,5 +1,7 @@
 package com.backandwhite.infrastructure.db.postgres.entity;
 
+import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.common.domain.valueobject.MoneyConverter;
 import com.backandwhite.common.infrastructure.entity.AuditableEntity;
 import com.backandwhite.domain.valueobject.CouponType;
 import jakarta.persistence.*;
@@ -33,11 +35,13 @@ public class CouponEntity extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private CouponType type;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal value;
+    private Money value;
 
+    @Convert(converter = MoneyConverter.class)
     @Column(name = "min_order_amount", precision = 12, scale = 2)
-    private BigDecimal minOrderAmount;
+    private Money minOrderAmount;
 
     @Column(name = "max_uses")
     private Integer maxUses;

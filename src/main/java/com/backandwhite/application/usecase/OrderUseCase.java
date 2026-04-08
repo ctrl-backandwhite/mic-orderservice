@@ -13,7 +13,7 @@ public interface OrderUseCase {
                         Map<String, Object> billingAddress, String paymentMethod, String couponCode,
                         String giftCardCode, BigDecimal giftCardAmount,
                         Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount,
-                        String notes);
+                        String notes, String currencyCode);
 
         Order confirmOrder(String orderId, String userId, String email);
 

@@ -1,5 +1,6 @@
 package com.backandwhite.infrastructure.db.postgres.repository.impl;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.Cart;
 import com.backandwhite.domain.model.CartItem;
 import com.backandwhite.domain.repository.CartRepository;
@@ -103,9 +104,9 @@ public class CartRepositoryImpl implements CartRepository {
     private Cart enrichCart(CartEntity entity) {
         Cart cart = mapper.toDomain(entity);
         List<CartItem> items = cart.getItems() != null ? cart.getItems() : java.util.List.<CartItem>of();
-        BigDecimal subtotal = items.stream()
-                .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        Money subtotal = items.stream()
+                .map(i -> i.getUnitPrice().multiply(i.getQuantity()))
+                .reduce(Money.zero(), Money::add);
         int count = items.stream().mapToInt(CartItem::getQuantity).sum();
         cart.setSubtotal(subtotal);
         cart.setItemCount(count);

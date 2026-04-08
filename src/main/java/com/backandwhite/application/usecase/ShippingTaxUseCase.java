@@ -4,6 +4,7 @@ import com.backandwhite.domain.model.ShippingCarrier;
 import com.backandwhite.domain.model.ShippingRule;
 import com.backandwhite.domain.model.TaxRule;
 import com.backandwhite.common.domain.model.PageResult;
+import com.backandwhite.common.domain.valueobject.Money;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -30,7 +31,7 @@ public interface ShippingTaxUseCase {
 
     PageResult<ShippingRule> findAllRules(int page, int size, String sortBy, boolean ascending);
 
-    List<ShippingRule> findShippingOptions(String country, BigDecimal weight, BigDecimal subtotal);
+    List<ShippingRule> findShippingOptions(String country, BigDecimal weight, Money subtotal);
 
     void deleteRule(String id);
 
@@ -43,7 +44,7 @@ public interface ShippingTaxUseCase {
 
     PageResult<TaxRule> findAllTaxRules(int page, int size, String sortBy, boolean ascending);
 
-    BigDecimal calculateTax(String country, String region, BigDecimal subtotal);
+    Money calculateTax(String country, String region, Money subtotal);
 
     void deleteTaxRule(String id);
 }

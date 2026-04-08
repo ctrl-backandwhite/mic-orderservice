@@ -8,6 +8,7 @@ import com.backandwhite.domain.model.TaxRule;
 import com.backandwhite.domain.repository.ShippingCarrierRepository;
 import com.backandwhite.domain.repository.ShippingRuleRepository;
 import com.backandwhite.domain.repository.TaxRuleRepository;
+import com.backandwhite.common.domain.valueobject.Money;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.data.domain.PageRequest;
@@ -16,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 
@@ -103,8 +103,29 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ShippingRule> findShippingOptions(String country, BigDecimal weight, BigDecimal subtotal) {
-        return ruleRepository.findOptions(country, weight, subtotal);
+    public List<ShippingRule> findShippingOptions(String country, BigDecimal weight, Money subtotal) {
+        List<String> zones = resolveZones(country);
+        return zones.stream()
+                .flatMap(zone -> ruleRepository.findOptions(zone, weight, subtotal).stream())
+                .toList();
+    }
+
+    /**
+     * Map ISO 3166-1 alpha-2 country code to applicable shipping zone names.
+     * For Spain, returns all sub-zones so the user can choose.
+     */
+    private List<String> resolveZones(String countryCode) {
+        if (countryCode == null) return List.of("Resto del mundo");
+        return switch (countryCode.toUpperCase()) {
+            case "ES" -> List.of("España Peninsular", "Baleares", "Canarias");
+            case "US" -> List.of("Estados Unidos");
+            case "PT" -> List.of("Portugal");
+            case "GB" -> List.of("Reino Unido");
+            case "FR", "DE", "IT", "NL", "BE", "AT", "IE", "FI", "SE", "DK",
+                 "PL", "CZ", "SK", "HU", "RO", "BG", "HR", "SI", "LT", "LV",
+                 "EE", "CY", "MT", "LU", "GR" -> List.of("Unión Europea");
+            default -> List.of("Resto del mundo");
+        };
     }
 
     @Override
@@ -150,7 +171,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public BigDecimal calculateTax(String country, String region, BigDecimal subtotal) {
+    public Money calculateTax(String country, String region, Money subtotal) {
         // 1. Try exact country + region
         List<TaxRule> rules = taxRuleRepository.findByCountryAndRegion(country, region);
 
@@ -161,7 +182,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
 
         // 3. Default 10 % when no rules are configured
         if (rules.isEmpty()) {
-            return subtotal.multiply(DEFAULT_TAX_RATE).setScale(2, RoundingMode.HALF_UP);
+            return subtotal.multiply(DEFAULT_TAX_RATE);
         }
 
         // Pick the rule with the highest rate
@@ -170,17 +191,17 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
                 .orElse(null);
 
         if (bestRule == null) {
-            return subtotal.multiply(DEFAULT_TAX_RATE).setScale(2, RoundingMode.HALF_UP);
+            return subtotal.multiply(DEFAULT_TAX_RATE);
         }
 
         // 4. Respect TaxType: FIXED uses rate as flat amount, everything else as
         // percentage
         if (bestRule.getType() == com.backandwhite.domain.valueobject.TaxType.FIXED) {
-            return bestRule.getRate().setScale(2, RoundingMode.HALF_UP);
+            return Money.of(bestRule.getRate());
         }
 
         // PERCENTAGE, VAT, SALES, GST — all treated as percentage of subtotal
-        return subtotal.multiply(bestRule.getRate()).setScale(2, RoundingMode.HALF_UP);
+        return subtotal.multiply(bestRule.getRate());
     }
 
     @Override

@@ -5,6 +5,7 @@ import com.backandwhite.application.usecase.CouponUseCase;
 import com.backandwhite.domain.model.Coupon;
 import com.backandwhite.domain.model.CouponUsage;
 import com.backandwhite.domain.repository.CouponRepository;
+import com.backandwhite.common.domain.valueobject.Money;
 
 import java.util.List;
 import com.backandwhite.domain.valueobject.CouponType;
@@ -16,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Map;
 
@@ -87,7 +87,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public BigDecimal validate(String code, BigDecimal cartSubtotal, String userId) {
+    public Money validate(String code, Money cartSubtotal, String userId) {
         if (cartSubtotal == null) {
             throw new IllegalArgumentException("cartSubtotal is required");
         }
@@ -108,8 +108,8 @@ public class CouponUseCaseImpl implements CouponUseCase {
         if (coupon.getMaxUses() != null && coupon.getUsedCount() >= coupon.getMaxUses()) {
             throw COUPON_EXHAUSTED.toBusinessException();
         }
-        if (coupon.getMinOrderAmount() != null && cartSubtotal.compareTo(coupon.getMinOrderAmount()) < 0) {
-            throw COUPON_MIN_ORDER.toBusinessException(coupon.getMinOrderAmount());
+        if (coupon.getMinOrderAmount() != null && cartSubtotal.isLessThan(coupon.getMinOrderAmount())) {
+            throw COUPON_MIN_ORDER.toBusinessException(coupon.getMinOrderAmount().getAmount());
         }
         if (userId != null) {
             int maxPerUser = coupon.getMaxUsesPerUser() != null ? coupon.getMaxUsesPerUser() : 1;
@@ -144,15 +144,14 @@ public class CouponUseCaseImpl implements CouponUseCase {
         return couponRepository.findUsagesByCouponId(couponId);
     }
 
-    private BigDecimal calculateDiscount(Coupon coupon, BigDecimal subtotal) {
+    private Money calculateDiscount(Coupon coupon, Money subtotal) {
         if (coupon.getType() == CouponType.PERCENTAGE) {
-            return subtotal.multiply(coupon.getValue())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            return subtotal.percentage(coupon.getValue().getAmount());
         }
         if (coupon.getType() == CouponType.FIXED) {
             return coupon.getValue().min(subtotal);
         }
         // FREE_SHIPPING — discount is 0, but shipping will be zeroed by order service
-        return BigDecimal.ZERO;
+        return Money.zero();
     }
 }

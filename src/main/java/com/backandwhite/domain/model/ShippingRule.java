@@ -2,6 +2,7 @@ package com.backandwhite.domain.model;
 
 import lombok.*;
 
+import com.backandwhite.common.domain.valueobject.Money;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -16,10 +17,10 @@ public class ShippingRule {
     private String zone;
     private BigDecimal minWeight;
     private BigDecimal maxWeight;
-    private BigDecimal minPrice;
-    private BigDecimal maxPrice;
-    private BigDecimal rate;
-    private BigDecimal freeAbove;
+    private Money minPrice;
+    private Money maxPrice;
+    private Money rate;
+    private Money freeAbove;
     private int estimatedDays;
     private boolean active;
     private String carrierName;
