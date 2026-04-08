@@ -39,5 +39,8 @@ public class ShippingOptionsDtoOut {
 
         @Schema(description = "Es envío gratuito")
         private boolean freeShipping;
+
+        @Schema(description = "Umbral para envío gratuito")
+        private BigDecimal freeAbove;
     }
 }

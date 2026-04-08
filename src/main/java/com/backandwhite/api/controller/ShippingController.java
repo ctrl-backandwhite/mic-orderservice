@@ -52,6 +52,7 @@ public class ShippingController {
                         .rate(r.getRate().getAmount())
                         .estimatedDays(r.getEstimatedDays())
                         .freeShipping(r.getRate().isZero())
+                        .freeAbove(r.getFreeAbove() != null ? r.getFreeAbove().getAmount() : null)
                         .build())
                 .toList();
         return ResponseEntity.ok(ShippingOptionsDtoOut.builder().options(options).build());
