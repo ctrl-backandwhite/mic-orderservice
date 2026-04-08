@@ -47,6 +47,9 @@ public class ShippingRuleDtoOut {
     @Schema(description = "Nombre del carrier")
     private String carrierName;
 
+    @Schema(description = "Activo")
+    private boolean active;
+
     @Schema(description = "Fecha de creación")
     private Instant createdAt;
 
