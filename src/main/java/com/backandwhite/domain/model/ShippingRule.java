@@ -22,7 +22,8 @@ public class ShippingRule {
     private Money rate;
     private Money freeAbove;
     private int estimatedDays;
-    private boolean active;
+    @Builder.Default
+    private boolean active = true;
     private String carrierName;
     private Instant createdAt;
     private Instant updatedAt;

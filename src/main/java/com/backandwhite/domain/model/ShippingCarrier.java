@@ -14,7 +14,8 @@ public class ShippingCarrier {
     private String name;
     private String code;
     private String logoUrl;
-    private boolean active;
+    @Builder.Default
+    private boolean active = true;
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -24,6 +24,7 @@ public interface ShippingTaxApiMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "active", expression = "java(dto.isActive())")
     ShippingCarrier toCarrierDomain(ShippingCarrierDtoIn dto);
 
     ShippingRuleDtoOut toRuleDto(ShippingRule rule);
@@ -34,6 +35,11 @@ public interface ShippingTaxApiMapper {
     @Mapping(target = "carrierName", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "active", expression = "java(dto.getActive() != null ? dto.getActive() : true)")
+    @Mapping(source = "weightMin", target = "minWeight")
+    @Mapping(source = "weightMax", target = "maxWeight")
+    @Mapping(source = "priceMin", target = "minPrice")
+    @Mapping(source = "priceMax", target = "maxPrice")
     ShippingRule toRuleDomain(ShippingRuleDtoIn dto);
 
     TaxRuleDtoOut toTaxRuleDto(TaxRule rule);

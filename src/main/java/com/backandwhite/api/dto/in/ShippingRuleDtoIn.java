@@ -44,4 +44,7 @@ public class ShippingRuleDtoIn {
 
     @Schema(description = "Días estimados de entrega", example = "5")
     private Integer estimatedDays;
+
+    @Schema(description = "Regla activa", example = "true")
+    private Boolean active;
 }
