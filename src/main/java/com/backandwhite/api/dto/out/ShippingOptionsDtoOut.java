@@ -17,6 +17,9 @@ public class ShippingOptionsDtoOut {
     @Schema(description = "Opciones disponibles")
     private List<ShippingOptionDto> options;
 
+    @Schema(description = "Código ISO 4217 de la moneda", example = "EUR")
+    private String currencyCode;
+
     @Data
     @With
     @Builder

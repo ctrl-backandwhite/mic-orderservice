@@ -9,6 +9,7 @@ import com.backandwhite.api.util.PageableUtils;
 import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.ShippingTaxUseCase;
 import com.backandwhite.common.constants.AppConstants;
+import com.backandwhite.common.currency.CurrencyHolder;
 import com.backandwhite.common.security.annotation.NxAdmin;
 import com.backandwhite.common.security.annotation.NxPublic;
 import com.backandwhite.common.domain.valueobject.Money;
@@ -44,6 +45,7 @@ public class TaxController {
                 .subtotal(subtotal)
                 .taxAmount(taxAmount.getAmount())
                 .totalWithTax(subtotalMoney.add(taxAmount).getAmount())
+                .currencyCode(CurrencyHolder.get())
                 .build());
     }
 

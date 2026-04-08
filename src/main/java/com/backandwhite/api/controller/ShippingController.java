@@ -11,6 +11,7 @@ import com.backandwhite.api.util.PageableUtils;
 import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.ShippingTaxUseCase;
 import com.backandwhite.common.constants.AppConstants;
+import com.backandwhite.common.currency.CurrencyHolder;
 import com.backandwhite.common.security.annotation.NxAdmin;
 import com.backandwhite.common.security.annotation.NxPublic;
 import com.backandwhite.common.domain.valueobject.Money;
@@ -55,7 +56,10 @@ public class ShippingController {
                         .freeAbove(r.getFreeAbove() != null ? r.getFreeAbove().getAmount() : null)
                         .build())
                 .toList();
-        return ResponseEntity.ok(ShippingOptionsDtoOut.builder().options(options).build());
+        return ResponseEntity.ok(ShippingOptionsDtoOut.builder()
+                .options(options)
+                .currencyCode(CurrencyHolder.get())
+                .build());
     }
 
     // ──CarriersCRUD ────────────────────────────────────────────────────

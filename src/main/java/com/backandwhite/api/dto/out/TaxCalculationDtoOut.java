@@ -21,4 +21,7 @@ public class TaxCalculationDtoOut {
 
     @Schema(description = "Total con impuesto")
     private BigDecimal totalWithTax;
+
+    @Schema(description = "Código ISO 4217 de la moneda", example = "EUR")
+    private String currencyCode;
 }
