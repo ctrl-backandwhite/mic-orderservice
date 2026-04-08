@@ -10,6 +10,7 @@ import com.backandwhite.infrastructure.db.postgres.entity.CartItemEntity;
 import com.backandwhite.infrastructure.db.postgres.mapper.CartInfraMapper;
 import com.backandwhite.infrastructure.db.postgres.repository.CartItemJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.repository.CartJpaRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +28,7 @@ public class CartRepositoryImpl implements CartRepository {
     private final CartJpaRepository cartJpa;
     private final CartItemJpaRepository cartItemJpa;
     private final CartInfraMapper mapper;
+    private final EntityManager entityManager;
 
     @Override
     public Optional<Cart> findActiveByUserId(String userId) {
@@ -83,6 +85,8 @@ public class CartRepositoryImpl implements CartRepository {
     @Override
     public void removeItem(String itemId) {
         cartItemJpa.deleteById(itemId);
+        entityManager.flush();
+        entityManager.clear();
     }
 
     @Override
