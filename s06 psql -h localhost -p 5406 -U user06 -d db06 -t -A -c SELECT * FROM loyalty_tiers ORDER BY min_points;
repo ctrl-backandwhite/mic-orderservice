@@ -1,0 +1,8 @@
+         id         |   name   | min_points | max_points | multiplier |                                       benefits                                        |         created_at         |         updated_at         | created_by | updated_by 
+--------------------+----------+------------+------------+------------+---------------------------------------------------------------------------------------+----------------------------+----------------------------+------------+------------
+ seed-tier-bronze   | Bronze   |          0 |        999 |       1.00 | [{"label": "Puntos x1"}, {"label": "Descuentos básicos"}]                             | 2026-04-05 12:10:20.953107 | 2026-04-05 12:10:20.953107 |            | 
+ seed-tier-silver   | Silver   |       1000 |       2999 |       1.50 | [{"label": "Puntos x1.5"}, {"label": "Envío gratis +50$"}]                            | 2026-04-05 12:10:20.953107 | 2026-04-05 12:10:20.953107 |            | 
+ seed-tier-gold     | Gold     |       3000 |       4999 |       2.00 | [{"label": "Puntos x2"}, {"label": "Envío gratis"}, {"label": "Soporte prioritario"}] | 2026-04-05 12:10:20.953107 | 2026-04-05 12:10:20.953107 |            | 
+ seed-tier-platinum | Platinum |       5000 |      99999 |       3.00 | [{"label": "Puntos x3"}, {"label": "Todo incluido"}, {"label": "Acceso anticipado"}]  | 2026-04-05 12:10:20.953107 | 2026-04-05 12:10:20.953107 |            | 
+(4 rows)
+

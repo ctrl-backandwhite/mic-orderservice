@@ -73,11 +73,20 @@ public class CatalogClient implements CatalogPort {
                 }
             }
 
-            // Fallback to product-level price
+            // Fallback to product-level price — prefer sellPriceRaw (numeric)
+            Object sellPriceRaw = product.get("sellPriceRaw");
+            if (sellPriceRaw != null) {
+                return Optional.of(new ProductVerification(
+                        new BigDecimal(sellPriceRaw.toString()), categoryId, BigDecimal.ZERO));
+            }
+            // Last resort: parse sellPrice string (may be range like "1.17 -- 1.22")
             Object sellPrice = product.get("sellPrice");
             if (sellPrice != null && !sellPrice.toString().isBlank()) {
-                return Optional.of(new ProductVerification(
-                        new BigDecimal(sellPrice.toString()), categoryId, BigDecimal.ZERO));
+                String raw = sellPrice.toString().split("--")[0].trim().replaceAll("[^\\d.]", "");
+                if (!raw.isEmpty()) {
+                    return Optional.of(new ProductVerification(
+                            new BigDecimal(raw), categoryId, BigDecimal.ZERO));
+                }
             }
 
             return Optional.empty();

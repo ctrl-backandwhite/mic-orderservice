@@ -12,6 +12,8 @@ import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.ShippingTaxUseCase;
 import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.common.currency.CurrencyHolder;
+import com.backandwhite.common.currency.CurrencyRateCache;
+import com.backandwhite.common.currency.PriceConversionService;
 import com.backandwhite.common.security.annotation.NxAdmin;
 import com.backandwhite.common.security.annotation.NxPublic;
 import com.backandwhite.common.domain.valueobject.Money;
@@ -26,6 +28,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -35,6 +39,14 @@ import java.util.List;
 public class ShippingController {
     private final ShippingTaxUseCase shippingTaxUseCase;
     private final ShippingTaxApiMapper shippingTaxApiMapper;
+    private final CurrencyRateCache currencyRateCache;
+    private final PriceConversionService priceConversionService;
+
+    /** Default shipping rate in USD when no rules are defined for the country */
+    private static final BigDecimal DEFAULT_RATE_USD = new BigDecimal("5.00");
+    private static final int DEFAULT_ESTIMATED_DAYS = 7;
+    private static final String DEFAULT_CARRIER_NAME = "Envío estándar";
+    private static final String DEFAULT_RULE_ID = "DEFAULT";
 
     // ──ShippingOptions ─────────────────────────────────────────────────
 
@@ -45,20 +57,53 @@ public class ShippingController {
             @Parameter(description = "País", example = "US") @RequestParam String country,
             @Parameter(description = "Peso (kg)", example = "1.5") @RequestParam(defaultValue = "1") BigDecimal weight,
             @Parameter(description = "Subtotaldelpedido", example = "99.99") @RequestParam BigDecimal subtotal) {
+
+        String targetCurrency = CurrencyHolder.get();
+        BigDecimal rate = currencyRateCache.getRate(targetCurrency);
+
         List<ShippingRule> rules = shippingTaxUseCase.findShippingOptions(country, weight, Money.of(subtotal));
-        List<ShippingOptionsDtoOut.ShippingOptionDto> options = rules.stream()
-                .map(r -> ShippingOptionsDtoOut.ShippingOptionDto.builder()
-                        .ruleId(r.getId())
-                        .carrierName(r.getCarrierName())
-                        .rate(r.getRate().getAmount())
-                        .estimatedDays(r.getEstimatedDays())
-                        .freeShipping(r.getRate().isZero())
-                        .freeAbove(r.getFreeAbove() != null ? r.getFreeAbove().getAmount() : null)
-                        .build())
-                .toList();
+
+        List<ShippingOptionsDtoOut.ShippingOptionDto> options;
+
+        if (rules.isEmpty()) {
+            // No rules for this country → return a single default option at $5 USD
+            // converted
+            BigDecimal convertedRate = priceConversionService
+                    .convertFromUsd(DEFAULT_RATE_USD, targetCurrency, rate).getAmount();
+            options = List.of(ShippingOptionsDtoOut.ShippingOptionDto.builder()
+                    .ruleId(DEFAULT_RULE_ID)
+                    .carrierName(DEFAULT_CARRIER_NAME)
+                    .rate(convertedRate)
+                    .estimatedDays(DEFAULT_ESTIMATED_DAYS)
+                    .freeShipping(false)
+                    .freeAbove(null)
+                    .build());
+        } else {
+            options = rules.stream()
+                    .map(r -> {
+                        BigDecimal convertedShippingRate = r.getRate().isZero()
+                                ? BigDecimal.ZERO
+                                : priceConversionService.convertFromUsd(r.getRate().getAmount(), targetCurrency, rate)
+                                        .getAmount();
+                        BigDecimal convertedFreeAbove = r.getFreeAbove() != null
+                                ? priceConversionService
+                                        .convertFromUsd(r.getFreeAbove().getAmount(), targetCurrency, rate).getAmount()
+                                : null;
+                        return ShippingOptionsDtoOut.ShippingOptionDto.builder()
+                                .ruleId(r.getId())
+                                .carrierName(r.getCarrierName())
+                                .rate(convertedShippingRate)
+                                .estimatedDays(r.getEstimatedDays())
+                                .freeShipping(r.getRate().isZero())
+                                .freeAbove(convertedFreeAbove)
+                                .build();
+                    })
+                    .toList();
+        }
+
         return ResponseEntity.ok(ShippingOptionsDtoOut.builder()
                 .options(options)
-                .currencyCode(CurrencyHolder.get())
+                .currencyCode(targetCurrency)
                 .build());
     }
 

@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 @Data
 @With
@@ -37,4 +38,7 @@ public class CartItemDtoIn {
 
     @Schema(description = "Imagen del producto")
     private String productImage;
+
+    @Schema(description = "Atributos de variante seleccionados", example = "{\"Color\":\"Rojo\",\"Talla\":\"M\"}")
+    private Map<String, String> selectedAttrs;
 }

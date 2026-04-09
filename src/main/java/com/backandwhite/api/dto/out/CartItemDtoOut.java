@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Map;
 
 @Data
 @With
@@ -34,6 +35,9 @@ public class CartItemDtoOut {
 
     @Schema(description = "Imagen del producto")
     private String productImage;
+
+    @Schema(description = "Atributos de variante seleccionados")
+    private Map<String, String> selectedAttrs;
 
     @Schema(description = "Fecha de creación")
     private Instant createdAt;

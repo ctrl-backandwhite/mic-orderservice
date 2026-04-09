@@ -6,6 +6,10 @@ import com.backandwhite.common.domain.valueobject.MoneyConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.util.Map;
 
 @With
 @Getter
@@ -46,4 +50,8 @@ public class CartItemEntity extends AuditableEntity {
 
     @Column(name = "product_image", length = 500)
     private String productImage;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "selected_attrs", columnDefinition = "jsonb")
+    private Map<String, String> selectedAttrs;
 }

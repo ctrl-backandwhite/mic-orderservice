@@ -3,6 +3,8 @@ package com.backandwhite.domain.model;
 import com.backandwhite.common.domain.valueobject.Money;
 import lombok.*;
 
+import java.util.Map;
+
 @Data
 @With
 @Builder
@@ -17,4 +19,5 @@ public class CartItem {
     private Money unitPrice;
     private String productName;
     private String productImage;
+    private Map<String, String> selectedAttrs;
 }

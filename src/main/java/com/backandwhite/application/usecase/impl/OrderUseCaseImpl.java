@@ -196,7 +196,9 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         Money total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount).floor();
 
-        // 4.5 Multi-currency: fetch exchange rate and convert prices if needed
+        // 4.5 Multi-currency: fetch exchange rate and convert totals
+        // NOTE: Price verification (step 1.5) already corrected cart prices to USD.
+        // We must convert USD → target currency here (single conversion).
         String resolvedCurrency = (currencyCode != null && !currencyCode.isBlank()) ? currencyCode.toUpperCase()
                 : "USD";
         BigDecimal exchangeRate = BigDecimal.ONE;
@@ -215,9 +217,12 @@ public class OrderUseCaseImpl implements OrderUseCase {
         }
 
         // 5. Build order items from cart items
+        // Cart prices were corrected to USD in step 1.5; now convert to target
+        // currency.
         final BigDecimal fxRate = exchangeRate;
         List<OrderItem> orderItems = cart.getItems().stream()
                 .map(ci -> {
+                    // ci.getUnitPrice() is in USD (corrected by price verification)
                     Money up = ci.getUnitPrice().multiply(fxRate);
                     return OrderItem.builder()
                             .productId(ci.getProductId())
@@ -325,8 +330,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 line.put("name", oi.getProductName());
                 line.put("sku", oi.getSku());
                 line.put("quantity", oi.getQuantity());
-                line.put("unitPrice", oi.getUnitPrice());
-                line.put("total", oi.getTotalPrice());
+                line.put("unitPrice", oi.getUnitPrice().getAmount());
+                line.put("total", oi.getTotalPrice().getAmount());
                 invoiceLines.add(line);
             }
 
@@ -441,6 +446,29 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 updated.getId(), updated.getUserId(), null,
                 updated.getOrderNumber(),
                 history.getFromStatus(), newStatus.name());
+
+        // When order is delivered, publish specific delivery event for loyalty
+        // processing — always send the total converted to USD
+        if (newStatus == OrderStatus.DELIVERED) {
+            BigDecimal totalUsd = updated.getTotal().getAmount();
+            if (updated.getExchangeRateToUsd() != null
+                    && updated.getExchangeRateToUsd().compareTo(BigDecimal.ZERO) > 0
+                    && !"USD".equalsIgnoreCase(updated.getCurrencyCode())) {
+                totalUsd = updated.getTotal().getAmount()
+                        .multiply(updated.getExchangeRateToUsd())
+                        .setScale(2, java.math.RoundingMode.HALF_UP);
+            }
+            orderEventPort.publishOrderDelivered(
+                    updated.getId(),
+                    updated.getUserId(),
+                    null,
+                    updated.getOrderNumber(),
+                    totalUsd.toPlainString());
+            log.info("::> Published order.delivered event for order={}, userId={}, totalLocal={} {}, totalUsd={}",
+                    updated.getOrderNumber(), updated.getUserId(),
+                    updated.getTotal().toPlainString(), updated.getCurrencyCode(),
+                    totalUsd.toPlainString());
+        }
 
         return updated;
     }
@@ -664,11 +692,15 @@ public class OrderUseCaseImpl implements OrderUseCase {
         if (pm == null)
             return "—";
         return switch (pm.toLowerCase()) {
-            case "credit_card", "creditcard" -> "Tarjeta de crédito";
+            case "card", "credit_card", "creditcard" -> "Tarjeta de crédito";
             case "debit_card", "debitcard" -> "Tarjeta de débito";
             case "paypal" -> "PayPal";
+            case "usdt", "crypto_usdt" -> "USDT (Crypto)";
+            case "btc", "crypto_btc" -> "Bitcoin (Crypto)";
             case "bank_transfer", "banktransfer" -> "Transferencia bancaria";
             case "cash_on_delivery", "cashondelivery", "cod" -> "Contra reembolso";
+            case "gift_card" -> "Tarjeta de regalo";
+            case "none" -> "Sin cargo";
             default -> pm;
         };
     }
