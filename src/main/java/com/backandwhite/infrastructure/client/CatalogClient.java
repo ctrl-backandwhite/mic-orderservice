@@ -59,33 +59,52 @@ public class CatalogClient implements CatalogPort {
                 if (variants != null) {
                     for (Map<String, Object> v : variants) {
                         if (variantId.equals(v.get("vid"))) {
-                            Object price = v.get("variantSellPrice");
+                            // retailPrice = cost + margin (set by PricingService)
+                            Object retail = v.get("retailPrice");
+                            // variantSellPrice = supplier cost (CJ)
+                            Object cost = v.get("variantSellPrice");
                             Object weight = v.get("variantWeight");
                             BigDecimal variantWeight = weight != null
                                     ? new BigDecimal(weight.toString())
                                     : BigDecimal.ZERO;
-                            if (price != null) {
+                            if (retail != null) {
+                                BigDecimal retailPrice = new BigDecimal(retail.toString());
+                                BigDecimal costPrice = cost != null
+                                        ? new BigDecimal(cost.toString())
+                                        : retailPrice; // fallback: no margin
                                 return Optional.of(new ProductVerification(
-                                        new BigDecimal(price.toString()), categoryId, variantWeight));
+                                        retailPrice, costPrice, categoryId, variantWeight));
+                            }
+                            // Fallback: if retailPrice missing, use variantSellPrice as both
+                            if (cost != null) {
+                                BigDecimal costPrice = new BigDecimal(cost.toString());
+                                return Optional.of(new ProductVerification(
+                                        costPrice, costPrice, categoryId, variantWeight));
                             }
                         }
                     }
                 }
             }
 
-            // Fallback to product-level price — prefer sellPriceRaw (numeric)
+            // Fallback to product-level prices
             Object sellPriceRaw = product.get("sellPriceRaw");
+            Object costPriceRaw = product.get("costPriceRaw");
             if (sellPriceRaw != null) {
+                BigDecimal retail = new BigDecimal(sellPriceRaw.toString());
+                BigDecimal cost = costPriceRaw != null
+                        ? new BigDecimal(costPriceRaw.toString())
+                        : retail;
                 return Optional.of(new ProductVerification(
-                        new BigDecimal(sellPriceRaw.toString()), categoryId, BigDecimal.ZERO));
+                        retail, cost, categoryId, BigDecimal.ZERO));
             }
             // Last resort: parse sellPrice string (may be range like "1.17 -- 1.22")
             Object sellPrice = product.get("sellPrice");
             if (sellPrice != null && !sellPrice.toString().isBlank()) {
                 String raw = sellPrice.toString().split("--")[0].trim().replaceAll("[^\\d.]", "");
                 if (!raw.isEmpty()) {
+                    BigDecimal parsed = new BigDecimal(raw);
                     return Optional.of(new ProductVerification(
-                            new BigDecimal(raw), categoryId, BigDecimal.ZERO));
+                            parsed, parsed, categoryId, BigDecimal.ZERO));
                 }
             }
 

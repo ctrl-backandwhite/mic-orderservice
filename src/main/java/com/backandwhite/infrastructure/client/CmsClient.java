@@ -67,7 +67,8 @@ public class CmsClient implements CmsPort {
             List<Map<String, Object>> campaigns,
             String productId,
             String categoryId,
-            Money basePrice) {
+            Money basePrice,
+            Money costPrice) {
 
         Money bestDiscount = Money.zero();
 
@@ -99,15 +100,22 @@ public class CmsClient implements CmsPort {
                 continue;
             }
 
-            // Calculate discount based on campaign type
+            // Calculate discount based on campaign type.
+            // Discounts are applied ONLY to the profit margin (basePrice − costPrice),
+            // never to the supplier cost price.
             String type = campaign.get("type") != null ? campaign.get("type").toString() : "";
             BigDecimal value = campaign.get("value") != null
                     ? new BigDecimal(campaign.get("value").toString())
                     : BigDecimal.ZERO;
 
+            Money margin = basePrice.subtract(costPrice);
+            if (margin.isNegative()) {
+                margin = Money.zero(); // guard: no margin = no discount
+            }
+
             Money discount = switch (type) {
-                case "PERCENTAGE", "FLASH" -> basePrice.percentage(value);
-                case "FIXED" -> Money.of(value);
+                case "PERCENTAGE", "FLASH" -> margin.percentage(value); // pct% of margin only
+                case "FIXED" -> Money.of(value).min(margin); // cap at margin
                 default -> Money.zero();
             };
 
@@ -116,8 +124,11 @@ public class CmsClient implements CmsPort {
             }
         }
 
-        // Ensure discount doesn't exceed price
-        return bestDiscount.min(basePrice);
+        // Ensure discount doesn't exceed the margin (price must stay >= costPrice)
+        Money maxDiscount = basePrice.subtract(costPrice);
+        if (maxDiscount.isNegative())
+            maxDiscount = Money.zero();
+        return bestDiscount.min(maxDiscount);
     }
 
     @Override

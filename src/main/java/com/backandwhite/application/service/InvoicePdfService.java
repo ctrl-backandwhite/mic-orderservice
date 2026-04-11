@@ -42,7 +42,7 @@ public class InvoicePdfService {
     public byte[] generatePdf(Invoice invoice) {
         Context ctx = new Context();
         ctx.setVariable("invoice", invoice);
-        ctx.setVariable("currency", "USD");
+        ctx.setVariable("currency", invoice.getCurrencyCode() != null ? invoice.getCurrencyCode() : "USD");
 
         // Status
         String statusKey = invoice.getStatus() != null

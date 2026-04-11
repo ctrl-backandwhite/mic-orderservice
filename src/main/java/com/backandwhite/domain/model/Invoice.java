@@ -29,6 +29,7 @@ public class Invoice {
     private Money giftCardAmount;
     private Money loyaltyDiscount;
     private String paymentMethod;
+    private String currencyCode;
     private Map<String, Object> customerSnapshot;
     private List<Map<String, Object>> lines;
     private String notes;

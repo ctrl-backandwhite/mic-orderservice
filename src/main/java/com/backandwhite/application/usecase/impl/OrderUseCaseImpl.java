@@ -101,7 +101,9 @@ public class OrderUseCaseImpl implements OrderUseCase {
                     ci.getProductId(), ci.getVariantId());
             if (verification.isPresent()) {
                 BigDecimal basePrice = verification.get().price();
+                BigDecimal costPriceRaw = verification.get().costPrice();
                 Money basePriceMoney = Money.of(basePrice);
+                Money costPriceMoney = Money.of(costPriceRaw != null ? costPriceRaw : basePrice);
                 String categoryId = verification.get().categoryId();
                 BigDecimal itemWeight = verification.get().weight();
                 productCategoryMap.put(ci.getProductId(), categoryId);
@@ -112,9 +114,9 @@ public class OrderUseCaseImpl implements OrderUseCase {
                             itemWeight.multiply(BigDecimal.valueOf(ci.getQuantity())));
                 }
 
-                // Apply best campaign discount (server-side — C-02)
+                // Apply best campaign discount on MARGIN ONLY (server-side — C-02)
                 Money campaignDiscount = cmsClient.calculateBestCampaignDiscount(
-                        activeCampaigns, ci.getProductId(), categoryId, basePriceMoney);
+                        activeCampaigns, ci.getProductId(), categoryId, basePriceMoney, costPriceMoney);
                 Money verifiedPrice = basePriceMoney.subtract(campaignDiscount).floor();
 
                 if (!ci.getUnitPrice().equals(verifiedPrice)) {
@@ -302,7 +304,9 @@ public class OrderUseCaseImpl implements OrderUseCase {
         // Publish order.created event
         orderEventPort.publishOrderCreated(
                 confirmed.getId(), userId, email, confirmed.getOrderNumber(),
-                confirmed.getTotal().toPlainString(), confirmed.getStatus().name(),
+                confirmed.getTotal().toPlainString(),
+                confirmed.getCurrencyCode() != null ? confirmed.getCurrencyCode() : "USD",
+                confirmed.getStatus().name(),
                 order.getItems().size(), null);
 
         // Deduct stock for each item via Kafka
@@ -352,6 +356,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
                     .loyaltyDiscount(
                             confirmed.getLoyaltyDiscount() != null ? confirmed.getLoyaltyDiscount() : Money.zero())
                     .paymentMethod(confirmed.getPaymentMethod())
+                    .currencyCode(confirmed.getCurrencyCode() != null ? confirmed.getCurrencyCode() : "USD")
                     .customerSnapshot(customerSnapshot)
                     .lines(invoiceLines)
                     .notes(null)

@@ -24,7 +24,7 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
         // ── Order Events ─────────────────────────────────────────────────────────
 
         public void publishOrderCreated(String orderId, String userId, String email,
-                        String orderReference, String totalAmount,
+                        String orderReference, String totalAmount, String currencyCode,
                         String status, int itemCount, String shippingAddressId) {
                 OrderCreatedEvent event = OrderCreatedEvent.newBuilder()
                                 .setOrderId(orderId)
@@ -32,7 +32,7 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
                                 .setEmail(email)
                                 .setOrderReference(orderReference)
                                 .setTotalAmount(totalAmount)
-                                .setCurrency("USD")
+                                .setCurrency(currencyCode != null ? currencyCode : "USD")
                                 .setStatus(status)
                                 .setItemCount(itemCount)
                                 .setShippingAddressId(shippingAddressId)
@@ -42,14 +42,14 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
         }
 
         public void publishOrderConfirmed(String orderId, String userId, String email,
-                        String orderReference, String totalAmount, int itemCount) {
+                        String orderReference, String totalAmount, String currencyCode, int itemCount) {
                 OrderConfirmedEvent event = OrderConfirmedEvent.newBuilder()
                                 .setOrderId(orderId)
                                 .setUserId(userId)
                                 .setEmail(email)
                                 .setOrderReference(orderReference)
                                 .setTotalAmount(totalAmount)
-                                .setCurrency("USD")
+                                .setCurrency(currencyCode != null ? currencyCode : "USD")
                                 .setItemCount(itemCount)
                                 .setTimestamp(now())
                                 .build();
@@ -160,7 +160,7 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
         }
 
         public void publishCartCheckoutInitiated(String cartId, String orderId, String userId,
-                        String email, String totalAmount, int itemCount,
+                        String email, String totalAmount, String currencyCode, int itemCount,
                         String couponCode, String shippingAddressId) {
                 CartCheckoutInitiatedEvent event = CartCheckoutInitiatedEvent.newBuilder()
                                 .setCartId(cartId)
@@ -168,7 +168,7 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
                                 .setUserId(userId)
                                 .setEmail(email)
                                 .setTotalAmount(totalAmount)
-                                .setCurrency("USD")
+                                .setCurrency(currencyCode != null ? currencyCode : "USD")
                                 .setItemCount(itemCount)
                                 .setCouponCode(couponCode)
                                 .setShippingAddressId(shippingAddressId)

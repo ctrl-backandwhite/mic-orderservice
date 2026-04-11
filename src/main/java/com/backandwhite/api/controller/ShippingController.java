@@ -58,52 +58,46 @@ public class ShippingController {
             @Parameter(description = "Peso (kg)", example = "1.5") @RequestParam(defaultValue = "1") BigDecimal weight,
             @Parameter(description = "Subtotaldelpedido", example = "99.99") @RequestParam BigDecimal subtotal) {
 
+        // Frontend sends subtotal in display currency; convert back to USD
+        // so the freeAbove comparison (stored in USD) works correctly.
         String targetCurrency = CurrencyHolder.get();
         BigDecimal rate = currencyRateCache.getRate(targetCurrency);
+        BigDecimal subtotalUsd = (rate.compareTo(BigDecimal.ZERO) > 0)
+                ? subtotal.divide(rate, 2, RoundingMode.HALF_UP)
+                : subtotal;
 
-        List<ShippingRule> rules = shippingTaxUseCase.findShippingOptions(country, weight, Money.of(subtotal));
+        List<ShippingRule> rules = shippingTaxUseCase.findShippingOptions(country, weight, Money.of(subtotalUsd));
 
         List<ShippingOptionsDtoOut.ShippingOptionDto> options;
 
         if (rules.isEmpty()) {
-            // No rules for this country → return a single default option at $5 USD
-            // converted
-            BigDecimal convertedRate = priceConversionService
-                    .convertFromUsd(DEFAULT_RATE_USD, targetCurrency, rate).getAmount();
+            // No rules for this country → return a single default option at $5 USD.
+            // Frontend converts to display currency via convertFromUsd().
             options = List.of(ShippingOptionsDtoOut.ShippingOptionDto.builder()
                     .ruleId(DEFAULT_RULE_ID)
                     .carrierName(DEFAULT_CARRIER_NAME)
-                    .rate(convertedRate)
+                    .rate(DEFAULT_RATE_USD)
                     .estimatedDays(DEFAULT_ESTIMATED_DAYS)
                     .freeShipping(false)
                     .freeAbove(null)
                     .build());
         } else {
+            // Return raw USD amounts; frontend handles display-currency conversion.
             options = rules.stream()
-                    .map(r -> {
-                        BigDecimal convertedShippingRate = r.getRate().isZero()
-                                ? BigDecimal.ZERO
-                                : priceConversionService.convertFromUsd(r.getRate().getAmount(), targetCurrency, rate)
-                                        .getAmount();
-                        BigDecimal convertedFreeAbove = r.getFreeAbove() != null
-                                ? priceConversionService
-                                        .convertFromUsd(r.getFreeAbove().getAmount(), targetCurrency, rate).getAmount()
-                                : null;
-                        return ShippingOptionsDtoOut.ShippingOptionDto.builder()
-                                .ruleId(r.getId())
-                                .carrierName(r.getCarrierName())
-                                .rate(convertedShippingRate)
-                                .estimatedDays(r.getEstimatedDays())
-                                .freeShipping(r.getRate().isZero())
-                                .freeAbove(convertedFreeAbove)
-                                .build();
-                    })
+                    .map(r -> ShippingOptionsDtoOut.ShippingOptionDto.builder()
+                            .ruleId(r.getId())
+                            .carrierName(r.getCarrierName())
+                            .rate(r.getRate().isZero() ? BigDecimal.ZERO : r.getRate().getAmount())
+                            .estimatedDays(r.getEstimatedDays())
+                            .freeShipping(r.getRate().isZero())
+                            .freeAbove(r.getFreeAbove() != null ? r.getFreeAbove().getAmount() : null)
+                            .build())
                     .toList();
         }
 
         return ResponseEntity.ok(ShippingOptionsDtoOut.builder()
                 .options(options)
-                .currencyCode(targetCurrency)
+                .currencyCode("USD")
                 .build());
     }
 

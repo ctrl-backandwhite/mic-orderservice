@@ -18,12 +18,15 @@ public interface CmsPort {
 
     /**
      * Calculates the best campaign discount for a given product.
+     * Discounts are applied only to the profit margin (basePrice − costPrice),
+     * never to the supplier cost price.
      */
     Money calculateBestCampaignDiscount(
             List<Map<String, Object>> campaigns,
             String productId,
             String categoryId,
-            Money basePrice);
+            Money basePrice,
+            Money costPrice);
 
     /**
      * Fetches the exchange rate for a currency code from CMS currency-rates API.

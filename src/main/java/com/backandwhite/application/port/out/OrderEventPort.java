@@ -5,11 +5,11 @@ public interface OrderEventPort {
     // ── Order Events ─────────────────────────────────────────────────────────
 
     void publishOrderCreated(String orderId, String userId, String email,
-            String orderReference, String totalAmount,
+            String orderReference, String totalAmount, String currencyCode,
             String status, int itemCount, String shippingAddressId);
 
     void publishOrderConfirmed(String orderId, String userId, String email,
-            String orderReference, String totalAmount, int itemCount);
+            String orderReference, String totalAmount, String currencyCode, int itemCount);
 
     void publishOrderStatusUpdated(String orderId, String userId, String email,
             String orderReference, String previousStatus, String newStatus);
@@ -38,7 +38,7 @@ public interface OrderEventPort {
             String totalAmount, int itemCount, String lastActivityAt);
 
     void publishCartCheckoutInitiated(String cartId, String orderId, String userId,
-            String email, String totalAmount, int itemCount,
+            String email, String totalAmount, String currencyCode, int itemCount,
             String couponCode, String shippingAddressId);
 
     // ── Stock Events ─────────────────────────────────────────────────────────
