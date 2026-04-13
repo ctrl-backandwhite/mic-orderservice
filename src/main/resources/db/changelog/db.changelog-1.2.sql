@@ -1,7 +1,11 @@
 -- ============================================================
 -- SEED: 15 return requests across various statuses
 -- References the 5 existing orders in the system
+-- Wrapped in DO block — skips silently on fresh installs where orders don't exist yet
 -- ============================================================
+
+DO $$
+BEGIN
 
 INSERT INTO return_requests (id, order_id, user_id, status, reason, items, refund_amount, created_at, updated_at)
 VALUES
@@ -87,3 +91,7 @@ VALUES
  35.97, '2026-04-02 20:00:00', '2026-04-04 08:45:00')
 
 ON CONFLICT (id) DO NOTHING;
+
+EXCEPTION WHEN foreign_key_violation THEN
+    NULL; -- Orders don't exist yet (fresh install) — seed data skipped
+END $$;

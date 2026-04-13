@@ -3,6 +3,7 @@ package com.backandwhite.application.usecase;
 import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderStats;
+import com.backandwhite.domain.valueobject.OrderSagaStatus;
 import com.backandwhite.domain.valueobject.OrderStatus;
 
 import java.math.BigDecimal;
@@ -31,6 +32,10 @@ public interface OrderUseCase {
         Order updateStatus(String id, OrderStatus newStatus, String changedBy, String reason);
 
         Order cancel(String id, String userId, String reason);
+
+        Order updateSagaStatus(String id, OrderSagaStatus sagaStatus);
+
+        Order updateCjFields(String id, String cjOrderId, String trackNumber);
 
         OrderStats getStats();
 }

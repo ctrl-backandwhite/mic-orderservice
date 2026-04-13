@@ -12,6 +12,15 @@ import java.util.Map;
 public interface CmsPort {
 
     /**
+     * Result of a campaign discount calculation, including the applied campaign ID.
+     */
+    record CampaignDiscountResult(Money discount, String campaignId) {
+        public static CampaignDiscountResult none() {
+            return new CampaignDiscountResult(Money.zero(), null);
+        }
+    }
+
+    /**
      * Fetches all active campaigns from the CMS service.
      */
     List<Map<String, Object>> getActiveCampaigns();
@@ -20,13 +29,17 @@ public interface CmsPort {
      * Calculates the best campaign discount for a given product.
      * Discounts are applied only to the profit margin (basePrice − costPrice),
      * never to the supplier cost price.
+     * Quantity is used for BUNDLE/BUY2GET1 calculations.
+     * orderSubtotal is used to filter campaigns by minOrder threshold.
      */
-    Money calculateBestCampaignDiscount(
+    CampaignDiscountResult calculateBestCampaignDiscount(
             List<Map<String, Object>> campaigns,
             String productId,
             String categoryId,
             Money basePrice,
-            Money costPrice);
+            Money costPrice,
+            int quantity,
+            Money orderSubtotal);
 
     /**
      * Fetches the exchange rate for a currency code from CMS currency-rates API.
@@ -34,4 +47,12 @@ public interface CmsPort {
      * Returns BigDecimal.ONE if the code is USD or if the call fails.
      */
     BigDecimal getExchangeRate(String currencyCode);
+
+    /**
+     * Checks if any active FREE_SHIPPING campaign applies to the given
+     * product/category list.
+     * Also verifies minOrder threshold against orderSubtotal.
+     */
+    boolean isFreeShippingCampaignActive(List<Map<String, Object>> campaigns,
+            List<String> productIds, List<String> categoryIds, Money orderSubtotal);
 }

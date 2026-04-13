@@ -22,7 +22,12 @@ public enum Message {
     MAX_ADDRESSES_REACHED("OR012", "Maximum number of addresses reached"),
     INSUFFICIENT_STOCK("OR013", "Insufficient stock for '%s': requested %d but only %d available"),
     PRICE_VERIFICATION_FAILED("OR014", "Unable to verify product prices — catalog service unavailable"),
-    COUPON_SCOPE_MISMATCH("OR015", "Coupon does not apply to any products in your cart");
+    COUPON_SCOPE_MISMATCH("OR015", "Coupon does not apply to any products in your cart"),
+    CJ_TOKEN_ERROR("OR016", "Failed to obtain access token from CJ Dropshipping"),
+    CJ_DATA_ERROR("OR017", "Failed to fetch data from CJ Dropshipping: %s"),
+    CJ_RATE_LIMIT("OR018", "Too many requests to CJ Dropshipping. Please try again later."),
+    CJ_ORDER_SUBMIT_FAILED("OR019", "Failed to submit order %s to CJ Dropshipping: %s"),
+    CJ_ORDER_NOT_FOUND("OR020", "CJ order record not found for orderId=%s");
 
     private final String code;
     private final String detail;
@@ -39,5 +44,10 @@ public enum Message {
     public BusinessException toBusinessException(Object... args) {
         log.warn("Business rule violation: {}", format(args));
         return new BusinessException(this.code, format(args));
+    }
+
+    public ExternalServiceException toExternalServiceException(Object... args) {
+        log.error("External service error: {}", format(args));
+        return new ExternalServiceException(this.code, format(args));
     }
 }

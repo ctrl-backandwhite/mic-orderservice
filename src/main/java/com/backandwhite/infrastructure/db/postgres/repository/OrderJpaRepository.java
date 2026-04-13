@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface OrderJpaRepository extends JpaRepository<OrderEntity, String>, JpaSpecificationExecutor<OrderEntity> {
     Optional<OrderEntity> findByOrderNumber(String orderNumber);
 
+    Optional<OrderEntity> findByCjOrderId(String cjOrderId);
+
     @Query("SELECT COUNT(o) FROM OrderEntity o")
     long countAll();
 

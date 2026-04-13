@@ -12,13 +12,84 @@ spring:
         type: caffeine
         caffeine:
             spec: maximumSize=500,expireAfterAccess=600s
+    kafka:
+        listener:
+            observation-enabled: true
+        template:
+            observation-enabled: true
 
 app:
     store:
         url: ${APP_STORE_URL:http://localhost:9000}
+    cj:
+        enabled: ${CJ_ENABLED:false}
+        default-logistic-name: ${CJ_DEFAULT_LOGISTIC_NAME:CJPacket Ordinary}
+        from-country-code: ${CJ_FROM_COUNTRY_CODE:CN}
+        status-sync-cron: ${CJ_STATUS_SYNC_CRON:0 */15 * * * *}
+        retry-cron: ${CJ_RETRY_CRON:0 */30 * * * *}
+        pipeline-retry-cron: ${CJ_PIPELINE_RETRY_CRON:0 */30 * * * *}
+        sync-batch-size: ${CJ_SYNC_BATCH_SIZE:20}
+        min-balance-alert: ${CJ_MIN_BALANCE_ALERT:50.00}
+        balance-check-cron: ${CJ_BALANCE_CHECK_CRON:0 0 * * * *}
+        webhook:
+            base-url: ${CJ_WEBHOOK_BASE_URL:}
+            secret: ${CJ_WEBHOOK_SECRET:}
+
+cj-dropshipping:
+    base-url: ${CJ_BASE_URL:https://developers.cjdropshipping.com/api2.0/v1}
+    api-key: ${CJ_API_KEY:}
 
 services:
     productcategory:
         url: ${SERVICES_PRODUCTCATEGORY_URL:http://localhost:6002}
     cmsservice:
         url: ${SERVICES_CMSSERVICE_URL:http://localhost:6006}
+
+management:
+    tracing:
+        sampling:
+            probability: ${OTEL_SAMPLING_PROBABILITY:1.0}
+    otlp:
+        tracing:
+            endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+    endpoints:
+        web:
+            exposure:
+                include: health,info,metrics,prometheus
+
+logging:
+    pattern:
+        level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+# --- OAuth2 Resource Server (opt-in) ---
+# To enable JWT validation, uncomment and set OAUTH2_ISSUER_URI + OAUTH2_JWK_SET_URI env vars
+#spring:
+#    security:
+#        oauth2:
+#            resourceserver:
+#                jwt:
+#                    issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:6001}
+#                    jwk-set-uri: ${OAUTH2_JWK_SET_URI:http://localhost:6001/oauth2/jwks}
+
+resilience4j:
+    retry:
+        instances:
+            cjShopping:
+                max-attempts: 3
+                wait-duration: 2s
+                enable-exponential-backoff: true
+                exponential-backoff-multiplier: 2
+                retry-exceptions:
+                    - org.springframework.web.reactive.function.client.WebClientException
+                    - java.io.IOException
+                ignore-exceptions:
+                    - com.backandwhite.domain.exception.ExternalServiceException
+    circuitbreaker:
+        instances:
+            cjShopping:
+                sliding-window-type: COUNT_BASED
+                sliding-window-size: 10
+                failure-rate-threshold: 50
+                wait-duration-in-open-state: 60s
+                permitted-number-of-calls-in-half-open-state: 3
+                register-health-indicator: true

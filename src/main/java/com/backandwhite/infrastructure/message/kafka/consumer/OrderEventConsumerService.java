@@ -1,5 +1,7 @@
 package com.backandwhite.infrastructure.message.kafka.consumer;
 
+import com.backandwhite.application.service.OrderCompensationService;
+import com.backandwhite.application.usecase.CjOrderFulfillmentUseCase;
 import com.backandwhite.application.usecase.OrderUseCase;
 import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.core.kafka.avro.PaymentConfirmedEvent;
@@ -23,6 +25,8 @@ import org.springframework.stereotype.Service;
 public class OrderEventConsumerService {
 
     private final OrderUseCase orderUseCase;
+    private final OrderCompensationService orderCompensationService;
+    private final CjOrderFulfillmentUseCase cjOrderFulfillmentUseCase;
 
     @KafkaListener(topics = AppConstants.KAFKA_TOPIC_PAYMENT_CONFIRMED, groupId = AppConstants.KAFKA_GROUP_ORDER, containerFactory = "avroKafkaListenerContainerFactory")
     public void onPaymentConfirmed(PaymentConfirmedEvent event) {
@@ -31,6 +35,13 @@ public class OrderEventConsumerService {
                 orderId, str(event.getPaymentId()), str(event.getAmount()));
         try {
             orderUseCase.updateStatus(orderId, OrderStatus.CONFIRMED, "SYSTEM", "Payment confirmed");
+            // Submit to CJ Dropshipping after confirmation
+            try {
+                cjOrderFulfillmentUseCase.submitOrderToCj(orderId);
+            } catch (Exception cjEx) {
+                log.error("::> CJ submission failed for order={}: {} (will retry via scheduler)",
+                        orderId, cjEx.getMessage());
+            }
         } catch (Exception e) {
             log.error("::> Failed processing payment.confirmed for order={}: {}",
                     orderId, e.getMessage(), e);
@@ -45,6 +56,15 @@ public class OrderEventConsumerService {
         try {
             orderUseCase.cancel(orderId, str(event.getUserId()),
                     "Payment failed: " + str(event.getReason()));
+            // Trigger Saga compensation: release stock + notify customer
+            orderCompensationService.compensate(
+                    orderId,
+                    str(event.getUserId()),
+                    str(event.getEmail()),
+                    orderId, // orderReference falls back to orderId
+                    str(event.getAmount()),
+                    "USD",
+                    str(event.getReason()));
         } catch (Exception e) {
             log.error("::> Failed processing payment.failed for order={}: {}",
                     orderId, e.getMessage(), e);

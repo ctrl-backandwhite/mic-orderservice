@@ -52,4 +52,11 @@ public class OrderItemEntity {
     @Convert(converter = MoneyConverter.class)
     @Column(name = "total_price", nullable = false, precision = 12, scale = 2)
     private Money totalPrice;
+
+    @Column(name = "campaign_id", length = 64)
+    private String campaignId;
+
+    @Convert(converter = MoneyConverter.class)
+    @Column(name = "campaign_discount", precision = 12, scale = 2)
+    private Money campaignDiscount;
 }

@@ -77,4 +77,34 @@ public class NoOpOrderEventAdapter implements OrderEventPort {
         public void publishInvoiceEmail(String email, String subject, String templateName,
                         java.util.Map<String, String> variables) {
         }
+
+        @Override
+        public void publishSagaPaymentRequested(String orderId, String userId, String email,
+                        String orderReference, String totalAmount, String currency) {
+        }
+
+        @Override
+        public void publishSagaStockRelease(String orderId, String userId, String reason) {
+        }
+
+        @Override
+        public void publishSagaNotifyFailure(String orderId, String userId, String email,
+                        String orderReference, String amount, String currency, String reason) {
+        }
+
+        @Override
+        public void publishCjOrderPaid(String orderId, String amount) {
+        }
+
+        @Override
+        public void publishCjOrderAwaitingFunds(String orderId, String needed, String available) {
+        }
+
+        @Override
+        public void publishCjFulfillmentFailed(String orderId, String step, String reason) {
+        }
+
+        @Override
+        public void publishCjBalanceLow(String balance, String threshold) {
+        }
 }

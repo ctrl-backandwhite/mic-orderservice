@@ -3,6 +3,7 @@ package com.backandwhite.infrastructure.db.postgres.entity;
 import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.common.domain.valueobject.MoneyConverter;
 import com.backandwhite.common.infrastructure.entity.AuditableEntity;
+import com.backandwhite.domain.valueobject.OrderSagaStatus;
 import com.backandwhite.domain.valueobject.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -38,6 +39,11 @@ public class OrderEntity extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(length = 30, nullable = false)
     private OrderStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "saga_status", length = 30)
+    @Builder.Default
+    private OrderSagaStatus sagaStatus = OrderSagaStatus.CREATED;
 
     @Convert(converter = MoneyConverter.class)
     @Column(nullable = false, precision = 12, scale = 2)
@@ -103,6 +109,32 @@ public class OrderEntity extends AuditableEntity {
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    @Convert(converter = MoneyConverter.class)
+    @Column(name = "campaign_discount_total", precision = 12, scale = 2)
+    @Builder.Default
+    private Money campaignDiscountTotal = Money.zero();
+
+    @Column(name = "cj_order_id", length = 200)
+    private String cjOrderId;
+
+    @Column(name = "track_number", length = 200)
+    private String trackNumber;
+
+    @Column(name = "tracking_url", length = 500)
+    private String trackingUrl;
+
+    @Column(name = "last_mile_carrier", length = 100)
+    private String lastMileCarrier;
+
+    @Column(name = "last_mile_track_number", length = 200)
+    private String lastMileTrackNumber;
+
+    @Column(name = "estimated_delivery_days")
+    private Integer estimatedDeliveryDays;
+
+    @Column(name = "delivery_time", length = 100)
+    private String deliveryTime;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default

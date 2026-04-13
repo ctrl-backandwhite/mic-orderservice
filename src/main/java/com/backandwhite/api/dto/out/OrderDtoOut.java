@@ -80,6 +80,9 @@ public class OrderDtoOut {
     @Schema(description = "Notas")
     private String notes;
 
+    @Schema(description = "Descuento total de campañas")
+    private BigDecimal campaignDiscountTotal;
+
     @Schema(description = "Items del pedido")
     private List<OrderItemDtoOut> items;
 

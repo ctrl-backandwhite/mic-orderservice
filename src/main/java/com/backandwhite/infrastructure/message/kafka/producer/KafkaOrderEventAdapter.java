@@ -223,6 +223,108 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
                 send(AppConstants.KAFKA_TOPIC_NOTIFICATION_EMAIL, email, event);
         }
 
+        // ── Saga Events (Compensation) ────────────────────────────────────────────
+
+        @Override
+        public void publishSagaPaymentRequested(String orderId, String userId, String email,
+                        String orderReference, String totalAmount, String currency) {
+                SagaPaymentRequestedEvent event = SagaPaymentRequestedEvent.newBuilder()
+                                .setOrderId(orderId)
+                                .setUserId(userId)
+                                .setEmail(email)
+                                .setOrderReference(orderReference)
+                                .setTotalAmount(totalAmount)
+                                .setCurrency(currency)
+                                .setTimestamp(now())
+                                .build();
+                send(AppConstants.KAFKA_TOPIC_SAGA_ORDER_PAYMENT_REQUESTED, orderId, event);
+        }
+
+        @Override
+        public void publishSagaStockRelease(String orderId, String userId, String reason) {
+                SagaStockReleaseEvent event = SagaStockReleaseEvent.newBuilder()
+                                .setOrderId(orderId)
+                                .setUserId(userId)
+                                .setReason(reason)
+                                .setTimestamp(now())
+                                .build();
+                send(AppConstants.KAFKA_TOPIC_SAGA_ORDER_STOCK_RELEASE, orderId, event);
+        }
+
+        @Override
+        public void publishSagaNotifyFailure(String orderId, String userId, String email,
+                        String orderReference, String amount, String currency, String reason) {
+                SagaNotifyFailureEvent event = SagaNotifyFailureEvent.newBuilder()
+                                .setOrderId(orderId)
+                                .setUserId(userId)
+                                .setEmail(email)
+                                .setOrderReference(orderReference)
+                                .setAmount(amount)
+                                .setCurrency(currency)
+                                .setReason(reason)
+                                .setTimestamp(now())
+                                .build();
+                send(AppConstants.KAFKA_TOPIC_SAGA_ORDER_NOTIFY_FAILURE, orderId, event);
+        }
+
+        // ── CJ Fulfillment Events ─────────────────────────────────────────────────
+
+        @Override
+        public void publishCjOrderPaid(String orderId, String amount) {
+                OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder()
+                                .setOrderId(orderId)
+                                .setUserId("SYSTEM")
+                                .setEmail(null)
+                                .setOrderReference(amount)
+                                .setPreviousStatus("PIPELINE")
+                                .setNewStatus("CJ_PAID")
+                                .setTimestamp(now())
+                                .build();
+                send(AppConstants.KAFKA_TOPIC_CJ_ORDER_PAID, orderId, event);
+        }
+
+        @Override
+        public void publishCjOrderAwaitingFunds(String orderId, String needed, String available) {
+                OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder()
+                                .setOrderId(orderId)
+                                .setUserId(needed)
+                                .setEmail(available)
+                                .setOrderReference(orderId)
+                                .setPreviousStatus("PIPELINE")
+                                .setNewStatus("CJ_AWAITING_FUNDS")
+                                .setTimestamp(now())
+                                .build();
+                send(AppConstants.KAFKA_TOPIC_CJ_ORDER_AWAITING_FUNDS, orderId, event);
+        }
+
+        @Override
+        public void publishCjFulfillmentFailed(String orderId, String step, String reason) {
+                OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder()
+                                .setOrderId(orderId)
+                                .setUserId("SYSTEM")
+                                .setEmail(null)
+                                .setOrderReference(step)
+                                .setPreviousStatus(step)
+                                .setNewStatus("CJ_PIPELINE_FAILED")
+                                .setTimestamp(now())
+                                .build();
+                send(AppConstants.KAFKA_TOPIC_CJ_FULFILLMENT_FAILED, orderId, event);
+        }
+
+        @Override
+        public void publishCjBalanceLow(String balance, String threshold) {
+                OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder()
+                                .setOrderId("BALANCE_MONITOR")
+                                .setUserId("SYSTEM")
+                                .setEmail(null)
+                                .setOrderReference(balance)
+                                .setPreviousStatus(balance)
+                                .setNewStatus("CJ_BALANCE_LOW")
+                                .setTimestamp(now())
+                                .build();
+                send(AppConstants.KAFKA_TOPIC_CJ_BALANCE_LOW, "BALANCE_MONITOR", event);
+        }
+
         // ── Common ───────────────────────────────────────────────────────────────
 
         private void send(String topic, String key, SpecificRecord event) {

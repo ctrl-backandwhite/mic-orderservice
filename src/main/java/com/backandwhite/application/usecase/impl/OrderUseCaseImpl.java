@@ -11,6 +11,7 @@ import com.backandwhite.domain.repository.OrderRepository;
 import com.backandwhite.domain.valueobject.CartStatus;
 import com.backandwhite.domain.valueobject.CouponType;
 import com.backandwhite.domain.valueobject.InvoiceStatus;
+import com.backandwhite.domain.valueobject.OrderSagaStatus;
 import com.backandwhite.domain.valueobject.OrderStatus;
 import com.backandwhite.application.port.out.CatalogPort;
 import com.backandwhite.application.port.out.CatalogPort.ProductVerification;
@@ -94,9 +95,11 @@ public class OrderUseCaseImpl implements OrderUseCase {
         List<Map<String, Object>> activeCampaigns = cmsClient.getActiveCampaigns();
         Map<String, String> productCategoryMap = new HashMap<>(); // productId → categoryId
         BigDecimal totalWeight = BigDecimal.ZERO; // sum of item weights for shipping (M-03)
+        Map<CartItem, Money[]> verifiedBasePrices = new LinkedHashMap<>(); // [basePrice, costPrice]
+        Money rawSubtotal = Money.zero(); // pre-campaign subtotal for minOrder checks
 
+        // Pass 1: verify prices, stock, accumulate weight and rawSubtotal
         for (CartItem ci : cart.getItems()) {
-            // Verify unit price against catalog's actual price + active campaigns
             Optional<ProductVerification> verification = catalogClient.getVerifiedPriceAndCategory(
                     ci.getProductId(), ci.getVariantId());
             if (verification.isPresent()) {
@@ -108,24 +111,13 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 BigDecimal itemWeight = verification.get().weight();
                 productCategoryMap.put(ci.getProductId(), categoryId);
 
+                verifiedBasePrices.put(ci, new Money[] { basePriceMoney, costPriceMoney });
+                rawSubtotal = rawSubtotal.add(basePriceMoney.multiply(ci.getQuantity()));
+
                 // Accumulate weight (M-03)
                 if (itemWeight != null && itemWeight.compareTo(BigDecimal.ZERO) > 0) {
                     totalWeight = totalWeight.add(
                             itemWeight.multiply(BigDecimal.valueOf(ci.getQuantity())));
-                }
-
-                // Apply best campaign discount on MARGIN ONLY (server-side — C-02)
-                Money campaignDiscount = cmsClient.calculateBestCampaignDiscount(
-                        activeCampaigns, ci.getProductId(), categoryId, basePriceMoney, costPriceMoney);
-                Money verifiedPrice = basePriceMoney.subtract(campaignDiscount).floor();
-
-                if (!ci.getUnitPrice().equals(verifiedPrice)) {
-                    log.warn(
-                            "Price correction: product={}, variant={}, cart={}, verified={} (base={}, campaign discount={})",
-                            ci.getProductId(), ci.getVariantId(),
-                            ci.getUnitPrice().toPlainString(), verifiedPrice.toPlainString(),
-                            basePriceMoney.toPlainString(), campaignDiscount.toPlainString());
-                    ci.setUnitPrice(verifiedPrice);
                 }
             }
 
@@ -136,6 +128,38 @@ public class OrderUseCaseImpl implements OrderUseCase {
                     throw INSUFFICIENT_STOCK.toBusinessException(
                             ci.getProductName(), ci.getQuantity(), available);
                 }
+            }
+        }
+
+        // Pass 2: apply campaign discounts using rawSubtotal for minOrder filtering
+        Map<CartItem, CmsPort.CampaignDiscountResult> campaignResults = new LinkedHashMap<>();
+        Money campaignDiscountTotal = Money.zero();
+        for (CartItem ci : cart.getItems()) {
+            Money[] prices = verifiedBasePrices.get(ci);
+            if (prices == null)
+                continue;
+            Money basePriceMoney = prices[0];
+            Money costPriceMoney = prices[1];
+            String categoryId = productCategoryMap.get(ci.getProductId());
+
+            CmsPort.CampaignDiscountResult result = cmsClient.calculateBestCampaignDiscount(
+                    activeCampaigns, ci.getProductId(), categoryId, basePriceMoney, costPriceMoney,
+                    ci.getQuantity(), rawSubtotal);
+            campaignResults.put(ci, result);
+            Money campaignDiscount = result.discount();
+            Money verifiedPrice = basePriceMoney.subtract(campaignDiscount).floor();
+
+            if (!ci.getUnitPrice().equals(verifiedPrice)) {
+                log.warn(
+                        "Price correction: product={}, variant={}, cart={}, verified={} (base={}, campaign discount={})",
+                        ci.getProductId(), ci.getVariantId(),
+                        ci.getUnitPrice().toPlainString(), verifiedPrice.toPlainString(),
+                        basePriceMoney.toPlainString(), campaignDiscount.toPlainString());
+                ci.setUnitPrice(verifiedPrice);
+            }
+            if (!campaignDiscount.isZero()) {
+                campaignDiscountTotal = campaignDiscountTotal.add(
+                        campaignDiscount.multiply(ci.getQuantity()));
             }
         }
 
@@ -196,6 +220,18 @@ public class OrderUseCaseImpl implements OrderUseCase {
             shippingCost = Money.zero();
         }
 
+        // 4.2 Check FREE_SHIPPING campaigns (independent of coupons)
+        if (!freeShipping) {
+            List<String> cartProductIds = cart.getItems().stream()
+                    .map(CartItem::getProductId).toList();
+            List<String> cartCategoryIds = cartProductIds.stream()
+                    .map(pid -> productCategoryMap.getOrDefault(pid, ""))
+                    .filter(cid -> !cid.isBlank()).distinct().toList();
+            if (cmsClient.isFreeShippingCampaignActive(activeCampaigns, cartProductIds, cartCategoryIds, rawSubtotal)) {
+                shippingCost = Money.zero();
+            }
+        }
+
         Money total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount).floor();
 
         // 4.5 Multi-currency: fetch exchange rate and convert totals
@@ -226,6 +262,11 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 .map(ci -> {
                     // ci.getUnitPrice() is in USD (corrected by price verification)
                     Money up = ci.getUnitPrice().multiply(fxRate);
+                    CmsPort.CampaignDiscountResult cr = campaignResults.get(ci);
+                    String campId = (cr != null) ? cr.campaignId() : null;
+                    Money campDisc = (cr != null && !cr.discount().isZero())
+                            ? cr.discount().multiply(fxRate)
+                            : null;
                     return OrderItem.builder()
                             .productId(ci.getProductId())
                             .variantId(ci.getVariantId())
@@ -235,6 +276,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
                             .quantity(ci.getQuantity())
                             .unitPrice(up)
                             .totalPrice(up.multiply(ci.getQuantity()))
+                            .campaignId(campId)
+                            .campaignDiscount(campDisc)
                             .build();
                 })
                 .toList();
@@ -264,6 +307,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 .billingAddress(billingAddress != null ? billingAddress : shippingAddress)
                 .paymentMethod(paymentMethod)
                 .notes(notes)
+                .campaignDiscountTotal(campaignDiscountTotal.multiply(fxRate))
                 .items(orderItems)
                 .build();
 
@@ -508,6 +552,31 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 cancelled.getOrderNumber(), reason);
 
         return cancelled;
+    }
+
+    @Override
+    @Transactional
+    public Order updateSagaStatus(String id, OrderSagaStatus sagaStatus) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        order.setSagaStatus(sagaStatus);
+        Order updated = orderRepository.update(order);
+        log.info("::> [Saga] sagaStatus updated: orderId={}, status={}", id, sagaStatus);
+        return updated;
+    }
+
+    @Override
+    @Transactional
+    public Order updateCjFields(String id, String cjOrderId, String trackNumber) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        if (cjOrderId != null)
+            order.setCjOrderId(cjOrderId);
+        if (trackNumber != null)
+            order.setTrackNumber(trackNumber);
+        Order updated = orderRepository.update(order);
+        log.info("::> CJ fields updated: orderId={}, cjOrderId={}, trackNumber={}", id, cjOrderId, trackNumber);
+        return updated;
     }
 
     @Override

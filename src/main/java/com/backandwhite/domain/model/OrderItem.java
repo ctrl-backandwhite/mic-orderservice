@@ -19,4 +19,6 @@ public class OrderItem {
     private int quantity;
     private Money unitPrice;
     private Money totalPrice;
+    private String campaignId;
+    private Money campaignDiscount;
 }

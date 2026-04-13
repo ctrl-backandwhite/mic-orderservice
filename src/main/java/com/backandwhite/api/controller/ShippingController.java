@@ -32,6 +32,9 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.backandwhite.application.port.out.CjShoppingPort;
+import com.backandwhite.domain.model.CjFreightOption;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/shipping")
@@ -41,6 +44,7 @@ public class ShippingController {
     private final ShippingTaxApiMapper shippingTaxApiMapper;
     private final CurrencyRateCache currencyRateCache;
     private final PriceConversionService priceConversionService;
+    private final CjShoppingPort cjShoppingPort;
 
     /** Default shipping rate in USD when no rules are defined for the country */
     private static final BigDecimal DEFAULT_RATE_USD = new BigDecimal("5.00");
@@ -205,5 +209,22 @@ public class ShippingController {
             @Parameter(description = "IDdelaregla") @PathVariable String id) {
         shippingTaxUseCase.deleteRule(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── CJ Freight Calculation ─────────────────────────────────────────────
+
+    @GetMapping("/freight/calculate")
+    @Operation(summary = "Calculate CJ freight options", description = "Queries CJ Dropshipping for available logistics options. "
+            +
+            "Pass toCountry, vid (CJ variant ID), and qty as query parameters.")
+    public ResponseEntity<List<CjFreightOption>> calculateFreight(
+            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+            @Parameter(description = "Destination country ISO-2 code, e.g. US") @RequestParam String toCountry,
+            @Parameter(description = "CJ variant ID") @RequestParam String vid,
+            @Parameter(description = "Quantity") @RequestParam(defaultValue = "1") int qty) {
+
+        CjFreightOption.ProductItem item = new CjFreightOption.ProductItem(vid, qty);
+        List<CjFreightOption> options = cjShoppingPort.calculateFreight(toCountry, List.of(item));
+        return ResponseEntity.ok(options);
     }
 }

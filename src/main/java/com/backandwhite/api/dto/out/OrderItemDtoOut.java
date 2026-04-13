@@ -36,4 +36,10 @@ public class OrderItemDtoOut {
 
     @Schema(description = "Precio total")
     private BigDecimal totalPrice;
+
+    @Schema(description = "ID de campaña aplicada")
+    private String campaignId;
+
+    @Schema(description = "Descuento de campaña por unidad")
+    private BigDecimal campaignDiscount;
 }

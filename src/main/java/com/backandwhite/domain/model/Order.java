@@ -1,6 +1,7 @@
 package com.backandwhite.domain.model;
 
 import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.domain.valueobject.OrderSagaStatus;
 import com.backandwhite.domain.valueobject.OrderStatus;
 import lombok.*;
 
@@ -19,6 +20,7 @@ public class Order {
     private String orderNumber;
     private String userId;
     private OrderStatus status;
+    private OrderSagaStatus sagaStatus;
     private Money subtotal;
     private Money shippingCost;
     private Money taxAmount;
@@ -36,6 +38,9 @@ public class Order {
     private BigDecimal exchangeRateToUsd;
     private String paymentRef;
     private String notes;
+    private Money campaignDiscountTotal;
+    private String cjOrderId;
+    private String trackNumber;
     private List<OrderItem> items;
     private List<OrderStatusHistory> statusHistory;
     private Instant createdAt;
