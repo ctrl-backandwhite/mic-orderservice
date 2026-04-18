@@ -6,16 +6,15 @@ import com.backandwhite.infrastructure.db.postgres.entity.CjTrackingEventEntity;
 import com.backandwhite.infrastructure.db.postgres.entity.OrderEntity;
 import com.backandwhite.infrastructure.db.postgres.repository.CjTrackingEventJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.repository.OrderJpaRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Handles LOGISTIC webhook events from CJ Dropshipping.
@@ -46,9 +45,7 @@ public class CjLogisticWebhookHandler {
         log.info("Processing LOGISTIC webhook for trackingNumber={} status={}", trackNumber, params.getStatus());
 
         // Resolve our internal orderId from cj_orders using the trackNumber
-        String internOrderId = cjOrderRepository.findByCjTrackNumber(trackNumber)
-                .map(o -> o.getOrderId())
-                .orElse(null);
+        String internOrderId = cjOrderRepository.findByCjTrackNumber(trackNumber).map(o -> o.getOrderId()).orElse(null);
 
         if (internOrderId == null) {
             log.warn("No cj_order found for trackNumber={}. Events will be stored without orderId.", trackNumber);
@@ -57,18 +54,12 @@ public class CjLogisticWebhookHandler {
         // Persist tracking milestone events
         if (params.getEvents() != null) {
             for (CjLogisticWebhookParams.TrackingEvent evt : params.getEvents()) {
-                CjTrackingEventEntity entity = CjTrackingEventEntity.builder()
-                        .orderId(internOrderId)
-                        .trackingNumber(trackNumber)
-                        .trackingStatus(params.getStatus())
-                        .statusDescription(params.getStatusDescription())
-                        .eventActivity(evt.getActivity())
-                        .eventLocation(evt.getLocation())
-                        .eventTime(parseEventTime(evt.getEventTime()))
-                        .logisticName(params.getLogisticName())
-                        .trackingUrl(params.getTrackUrl())
-                        .createdAt(Instant.now())
-                        .build();
+                CjTrackingEventEntity entity = CjTrackingEventEntity.builder().orderId(internOrderId)
+                        .trackingNumber(trackNumber).trackingStatus(params.getStatus())
+                        .statusDescription(params.getStatusDescription()).eventActivity(evt.getActivity())
+                        .eventLocation(evt.getLocation()).eventTime(parseEventTime(evt.getEventTime()))
+                        .logisticName(params.getLogisticName()).trackingUrl(params.getTrackUrl())
+                        .createdAt(Instant.now()).build();
                 trackingEventRepository.save(entity);
             }
         }

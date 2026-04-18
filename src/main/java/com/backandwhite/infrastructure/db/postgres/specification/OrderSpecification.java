@@ -2,9 +2,8 @@ package com.backandwhite.infrastructure.db.postgres.specification;
 
 import com.backandwhite.infrastructure.db.postgres.entity.OrderEntity;
 import jakarta.persistence.criteria.Predicate;
-import org.springframework.data.jpa.domain.Specification;
-
 import java.util.Map;
+import org.springframework.data.jpa.domain.Specification;
 
 public class OrderSpecification {
 
@@ -24,8 +23,7 @@ public class OrderSpecification {
             }
             if (filters.containsKey("search")) {
                 String search = "%" + filters.get("search").toString().toLowerCase() + "%";
-                predicate = cb.and(predicate, cb.or(
-                        cb.like(cb.lower(root.get("orderNumber")), search),
+                predicate = cb.and(predicate, cb.or(cb.like(cb.lower(root.get("orderNumber")), search),
                         cb.like(cb.lower(root.get("userId")), search)));
             }
 

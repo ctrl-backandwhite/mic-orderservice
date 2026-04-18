@@ -5,14 +5,14 @@ import com.backandwhite.domain.model.CjOrder;
 public interface CjOrderFulfillmentUseCase {
 
     /**
-     * Submits a confirmed order to CJ Dropshipping and automatically
-     * triggers the fulfillment pipeline (addCart → confirm → pay).
+     * Submits a confirmed order to CJ Dropshipping and automatically triggers the
+     * fulfillment pipeline (addCart → confirm → pay).
      */
     CjOrder submitOrderToCj(String orderId);
 
     /**
-     * Syncs the CJ order status and tracking number.
-     * Called by the status-sync scheduler.
+     * Syncs the CJ order status and tracking number. Called by the status-sync
+     * scheduler.
      */
     CjOrder syncStatus(String orderId);
 

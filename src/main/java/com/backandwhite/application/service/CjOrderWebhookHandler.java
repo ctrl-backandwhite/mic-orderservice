@@ -1,19 +1,18 @@
 package com.backandwhite.application.service;
 
-import com.backandwhite.api.dto.webhook.CjOrderWebhookParams;
 import com.backandwhite.api.dto.webhook.CjOrderSplitWebhookParams;
-import com.backandwhite.domain.repository.CjOrderRepository;
+import com.backandwhite.api.dto.webhook.CjOrderWebhookParams;
 import com.backandwhite.domain.model.CjOrder;
+import com.backandwhite.domain.repository.CjOrderRepository;
 import com.backandwhite.domain.valueobject.CjOrderStatus;
 import com.backandwhite.infrastructure.db.postgres.entity.CjOrderSplitEntity;
 import com.backandwhite.infrastructure.db.postgres.repository.CjOrderSplitJpaRepository;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.UUID;
 
 /**
  * Handles ORDER and ORDERSPLIT webhook events from CJ Dropshipping.
@@ -32,8 +31,7 @@ public class CjOrderWebhookHandler {
     @Transactional
     public void handleOrderEvent(String messageType, CjOrderWebhookParams params) {
         String cjOrderId = params.getOrderId();
-        cjOrderRepository.findByCjOrderId(cjOrderId).ifPresentOrElse(
-                order -> updateOrderFromWebhook(order, params),
+        cjOrderRepository.findByCjOrderId(cjOrderId).ifPresentOrElse(order -> updateOrderFromWebhook(order, params),
                 () -> log.warn("Received ORDER webhook for unknown cjOrderId={}", cjOrderId));
     }
 
@@ -45,14 +43,10 @@ public class CjOrderWebhookHandler {
         cjOrderRepository.findByCjOrderId(originalCjOrderId).ifPresentOrElse(order -> {
             if (params.getSubOrders() != null) {
                 for (CjOrderSplitWebhookParams.SubOrder sub : params.getSubOrders()) {
-                    CjOrderSplitEntity split = CjOrderSplitEntity.builder()
-                            .id(UUID.randomUUID().toString())
-                            .orderId(order.getOrderId())
-                            .originalCjOrderId(originalCjOrderId)
-                            .splitCjOrderId(sub.getCjOrderId())
-                            .orderStatus(sub.getOrderStatus())
-                            .productList(sub.getProductList())
-                            .build();
+                    CjOrderSplitEntity split = CjOrderSplitEntity.builder().id(UUID.randomUUID().toString())
+                            .orderId(order.getOrderId()).originalCjOrderId(originalCjOrderId)
+                            .splitCjOrderId(sub.getCjOrderId()).orderStatus(sub.getOrderStatus())
+                            .productList(sub.getProductList()).build();
                     splitRepository.save(split);
                     log.info("Saved split: originalCjOrderId={} -> splitCjOrderId={}", originalCjOrderId,
                             sub.getCjOrderId());

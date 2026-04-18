@@ -1,11 +1,10 @@
 package com.backandwhite.domain.repository;
 
 import com.backandwhite.domain.model.Invoice;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface InvoiceRepository {
     Invoice save(Invoice invoice);

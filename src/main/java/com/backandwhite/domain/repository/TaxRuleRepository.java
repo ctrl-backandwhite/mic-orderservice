@@ -1,12 +1,11 @@
 package com.backandwhite.domain.repository;
 
 import com.backandwhite.domain.model.TaxRule;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface TaxRuleRepository {
     TaxRule save(TaxRule rule);

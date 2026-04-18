@@ -12,10 +12,14 @@ public interface CatalogPort {
     /**
      * Product verification info returned by the catalog.
      * 
-     * @param price      retail price (cost + margin)
-     * @param costPrice  supplier cost price (CJ)
-     * @param categoryId product category ID
-     * @param weight     variant weight
+     * @param price
+     *            retail price (cost + margin)
+     * @param costPrice
+     *            supplier cost price (CJ)
+     * @param categoryId
+     *            product category ID
+     * @param weight
+     *            variant weight
      */
     record ProductVerification(BigDecimal price, BigDecimal costPrice, String categoryId, BigDecimal weight) {
     }

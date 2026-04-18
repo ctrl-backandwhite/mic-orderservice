@@ -1,11 +1,9 @@
 package com.backandwhite.application.usecase;
 
 import com.backandwhite.common.domain.model.PageResult;
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.Coupon;
 import com.backandwhite.domain.model.CouponUsage;
-import com.backandwhite.common.domain.valueobject.Money;
-
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 

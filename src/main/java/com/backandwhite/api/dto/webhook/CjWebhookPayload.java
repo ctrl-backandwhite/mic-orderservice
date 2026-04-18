@@ -5,8 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Generic wrapper for all CJ webhook payloads.
- * CJ POSTs JSON like:
+ * Generic wrapper for all CJ webhook payloads. CJ POSTs JSON like:
  * 
  * <pre>
  * {
@@ -18,7 +17,8 @@ import lombok.NoArgsConstructor;
  * }
  * </pre>
  *
- * @param <T> the concrete params type
+ * @param <T>
+ *            the concrete params type
  */
 @Data
 @NoArgsConstructor

@@ -1,10 +1,9 @@
 package com.backandwhite.api.dto.out;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.util.List;
+import lombok.*;
 
 @Data
 @With

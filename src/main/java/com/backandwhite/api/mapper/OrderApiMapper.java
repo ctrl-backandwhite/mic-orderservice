@@ -8,9 +8,8 @@ import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderItem;
 import com.backandwhite.domain.model.OrderStats;
 import com.backandwhite.domain.model.OrderStatusHistory;
-import org.mapstruct.Mapper;
-
 import java.util.List;
+import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring", uses = MoneyMapperHelper.class)
 public interface OrderApiMapper {

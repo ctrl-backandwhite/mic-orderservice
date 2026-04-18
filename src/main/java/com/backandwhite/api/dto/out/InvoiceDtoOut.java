@@ -2,13 +2,12 @@ package com.backandwhite.api.dto.out;
 
 import com.backandwhite.domain.valueobject.InvoiceStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import lombok.*;
 
 @Data
 @With

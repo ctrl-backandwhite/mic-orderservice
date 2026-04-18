@@ -28,8 +28,8 @@ public class OrderCompensationService {
     private final OrderEventPort orderEventPort;
     private final OrderUseCase orderUseCase;
 
-    public void compensate(String orderId, String userId, String email,
-            String orderReference, String amount, String currency, String reason) {
+    public void compensate(String orderId, String userId, String email, String orderReference, String amount,
+            String currency, String reason) {
 
         log.info("::> [Saga] Starting compensation for orderId={}, reason={}", orderId, reason);
 
@@ -47,8 +47,7 @@ public class OrderCompensationService {
         }
 
         try {
-            orderEventPort.publishSagaNotifyFailure(orderId, userId, email,
-                    orderReference, amount, currency, reason);
+            orderEventPort.publishSagaNotifyFailure(orderId, userId, email, orderReference, amount, currency, reason);
             log.info("::> [Saga] Published notify-failure for orderId={}", orderId);
         } catch (Exception e) {
             log.error("::> [Saga] Failed to publish notify-failure for orderId={}: {}", orderId, e.getMessage(), e);

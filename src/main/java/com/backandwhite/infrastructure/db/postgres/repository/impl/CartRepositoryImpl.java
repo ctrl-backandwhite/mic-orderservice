@@ -11,15 +11,13 @@ import com.backandwhite.infrastructure.db.postgres.mapper.CartInfraMapper;
 import com.backandwhite.infrastructure.db.postgres.repository.CartItemJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.repository.CartJpaRepository;
 import jakarta.persistence.EntityManager;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
@@ -32,14 +30,12 @@ public class CartRepositoryImpl implements CartRepository {
 
     @Override
     public Optional<Cart> findActiveByUserId(String userId) {
-        return cartJpa.findByUserIdAndStatus(userId, CartStatus.ACTIVE)
-                .map(this::enrichCart);
+        return cartJpa.findByUserIdAndStatus(userId, CartStatus.ACTIVE).map(this::enrichCart);
     }
 
     @Override
     public Optional<Cart> findActiveBySessionId(String sessionId) {
-        return cartJpa.findBySessionIdAndStatus(sessionId, CartStatus.ACTIVE)
-                .map(this::enrichCart);
+        return cartJpa.findBySessionIdAndStatus(sessionId, CartStatus.ACTIVE).map(this::enrichCart);
     }
 
     @Override
@@ -96,8 +92,7 @@ public class CartRepositoryImpl implements CartRepository {
 
     @Override
     public Optional<CartItem> findItemByCartAndProduct(String cartId, String productId, String variantId) {
-        return cartItemJpa.findByCartIdAndProductIdAndVariantId(cartId, productId, variantId)
-                .map(mapper::toItemDomain);
+        return cartItemJpa.findByCartIdAndProductIdAndVariantId(cartId, productId, variantId).map(mapper::toItemDomain);
     }
 
     @Override
@@ -108,9 +103,8 @@ public class CartRepositoryImpl implements CartRepository {
     private Cart enrichCart(CartEntity entity) {
         Cart cart = mapper.toDomain(entity);
         List<CartItem> items = cart.getItems() != null ? cart.getItems() : java.util.List.<CartItem>of();
-        Money subtotal = items.stream()
-                .map(i -> i.getUnitPrice().multiply(i.getQuantity()))
-                .reduce(Money.zero(), Money::add);
+        Money subtotal = items.stream().map(i -> i.getUnitPrice().multiply(i.getQuantity())).reduce(Money.zero(),
+                Money::add);
         int count = items.stream().mapToInt(CartItem::getQuantity).sum();
         cart.setSubtotal(subtotal);
         cart.setItemCount(count);

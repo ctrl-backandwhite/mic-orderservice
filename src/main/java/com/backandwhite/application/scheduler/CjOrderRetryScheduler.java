@@ -5,13 +5,12 @@ import com.backandwhite.application.usecase.CjOrderFulfillmentUseCase;
 import com.backandwhite.domain.model.CjOrder;
 import com.backandwhite.domain.repository.CjOrderRepository;
 import com.backandwhite.domain.valueobject.CjOrderStatus;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 /**
  * Retries CJ orders in three scenarios:
@@ -40,8 +39,8 @@ public class CjOrderRetryScheduler {
     @Scheduled(cron = "${app.cj.retry-cron:0 */30 * * * *}")
     public void retryFailedOrders() {
         log.info("══════ CJ Order Retry (CREATED) ══════");
-        List<CjOrder> candidates = cjOrderRepository
-                .findByStatusAndErrorCountLessThan(CjOrderStatus.CREATED, MAX_RETRIES);
+        List<CjOrder> candidates = cjOrderRepository.findByStatusAndErrorCountLessThan(CjOrderStatus.CREATED,
+                MAX_RETRIES);
         log.info("Found {} CREATED orders to retry", candidates.size());
 
         int success = 0;
@@ -66,8 +65,7 @@ public class CjOrderRetryScheduler {
     public void retryPipelineOrders() {
         log.info("══════ CJ Pipeline Retry (PIPELINE_FAILED / AWAITING_FUNDS) ══════");
         List<CjOrder> candidates = cjOrderRepository.findByStatusInAndErrorCountLessThan(
-                List.of(CjOrderStatus.PIPELINE_FAILED, CjOrderStatus.AWAITING_FUNDS),
-                MAX_RETRIES);
+                List.of(CjOrderStatus.PIPELINE_FAILED, CjOrderStatus.AWAITING_FUNDS), MAX_RETRIES);
         log.info("Found {} pipeline-stalled orders to resume", candidates.size());
 
         int success = 0;

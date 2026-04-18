@@ -5,11 +5,10 @@ import com.backandwhite.domain.repository.CjOrderRepository;
 import com.backandwhite.domain.valueobject.CjOrderStatus;
 import com.backandwhite.infrastructure.db.postgres.mapper.CjOrderInfraMapper;
 import com.backandwhite.infrastructure.db.postgres.repository.CjOrderJpaRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor

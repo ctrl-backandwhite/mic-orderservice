@@ -3,22 +3,19 @@ package com.backandwhite.application.service;
 import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.Invoice;
 import com.lowagie.text.DocumentException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
-import org.xhtmlrenderer.pdf.ITextRenderer;
-
 import java.io.ByteArrayOutputStream;
-import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+import org.xhtmlrenderer.pdf.ITextRenderer;
 
 @Slf4j
 @Service
@@ -45,9 +42,7 @@ public class InvoicePdfService {
         ctx.setVariable("currency", invoice.getCurrencyCode() != null ? invoice.getCurrencyCode() : "USD");
 
         // Status
-        String statusKey = invoice.getStatus() != null
-                ? invoice.getStatus().name().toLowerCase()
-                : "pending";
+        String statusKey = invoice.getStatus() != null ? invoice.getStatus().name().toLowerCase() : "pending";
         ctx.setVariable("statusKey", statusKey);
         ctx.setVariable("statusLabel", formatStatus(statusKey));
 
@@ -77,8 +72,7 @@ public class InvoicePdfService {
         // "Charged via" amount (when gift card or loyalty covers part of total)
         Money giftCard = invoice.getGiftCardAmount() != null ? invoice.getGiftCardAmount() : Money.zero();
         Money loyalty = invoice.getLoyaltyDiscount() != null ? invoice.getLoyaltyDiscount() : Money.zero();
-        if ((giftCard.isPositive() || loyalty.isPositive())
-                && invoice.getTotal() != null) {
+        if ((giftCard.isPositive() || loyalty.isPositive()) && invoice.getTotal() != null) {
             Money charged = invoice.getTotal().subtract(giftCard).subtract(loyalty);
             if (charged.isPositive()) {
                 ctx.setVariable("chargedVia", charged.getAmount());

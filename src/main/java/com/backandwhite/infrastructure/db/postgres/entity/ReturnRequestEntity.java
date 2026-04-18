@@ -5,14 +5,12 @@ import com.backandwhite.common.domain.valueobject.MoneyConverter;
 import com.backandwhite.common.infrastructure.entity.AuditableEntity;
 import com.backandwhite.domain.valueobject.ReturnStatus;
 import jakarta.persistence.*;
+import java.util.List;
+import java.util.Map;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
 
 @With
 @Getter

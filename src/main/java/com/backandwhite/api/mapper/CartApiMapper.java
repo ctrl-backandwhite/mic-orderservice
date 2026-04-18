@@ -5,10 +5,9 @@ import com.backandwhite.api.dto.out.CartDtoOut;
 import com.backandwhite.api.dto.out.CartItemDtoOut;
 import com.backandwhite.domain.model.Cart;
 import com.backandwhite.domain.model.CartItem;
+import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.util.List;
 
 @Mapper(componentModel = "spring", uses = MoneyMapperHelper.class)
 public interface CartApiMapper {

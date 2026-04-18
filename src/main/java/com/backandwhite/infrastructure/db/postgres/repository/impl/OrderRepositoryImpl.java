@@ -12,17 +12,15 @@ import com.backandwhite.infrastructure.db.postgres.mapper.OrderInfraMapper;
 import com.backandwhite.infrastructure.db.postgres.repository.OrderJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.repository.OrderStatusHistoryJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.specification.OrderSpecification;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
@@ -88,15 +86,13 @@ public class OrderRepositoryImpl implements OrderRepository {
 
     @Override
     public Page<Order> findAll(Map<String, Object> filters, Pageable pageable) {
-        return orderJpa.findAll(OrderSpecification.withFilters(filters), pageable)
-                .map(mapper::toDomain);
+        return orderJpa.findAll(OrderSpecification.withFilters(filters), pageable).map(mapper::toDomain);
     }
 
     @Override
     public Page<Order> findByUserId(String userId, Map<String, Object> filters, Pageable pageable) {
         filters.put("userId", userId);
-        return orderJpa.findAll(OrderSpecification.withFilters(filters), pageable)
-                .map(mapper::toDomain);
+        return orderJpa.findAll(OrderSpecification.withFilters(filters), pageable).map(mapper::toDomain);
     }
 
     @Override
@@ -117,19 +113,10 @@ public class OrderRepositoryImpl implements OrderRepository {
         long cancelled = orderJpa.countCancelled();
         BigDecimal revenue = orderJpa.sumTotalRevenue();
         Money totalRevenue = Money.of(revenue);
-        Money avg = (total - cancelled) > 0
-                ? totalRevenue.divide(BigDecimal.valueOf(total - cancelled))
-                : Money.zero();
+        Money avg = (total - cancelled) > 0 ? totalRevenue.divide(BigDecimal.valueOf(total - cancelled)) : Money.zero();
 
-        return OrderStats.builder()
-                .totalOrders(total)
-                .pendingOrders(pending)
-                .processingOrders(processing)
-                .shippedOrders(shipped)
-                .deliveredOrders(delivered)
-                .cancelledOrders(cancelled)
-                .totalRevenue(totalRevenue)
-                .avgOrderValue(avg)
-                .build();
+        return OrderStats.builder().totalOrders(total).pendingOrders(pending).processingOrders(processing)
+                .shippedOrders(shipped).deliveredOrders(delivered).cancelledOrders(cancelled).totalRevenue(totalRevenue)
+                .avgOrderValue(avg).build();
     }
 }

@@ -1,30 +1,28 @@
 package com.backandwhite.application.usecase.impl;
 
-import com.backandwhite.common.domain.valueobject.Money;
-import com.backandwhite.common.domain.model.PageResult;
+import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
+import static com.backandwhite.domain.exception.Message.RETURN_ORDER_NOT_DELIVERED;
+import static com.backandwhite.domain.exception.Message.RETURN_WINDOW_EXPIRED;
+
+import com.backandwhite.application.port.out.OrderEventPort;
 import com.backandwhite.application.usecase.ReturnUseCase;
+import com.backandwhite.common.domain.model.PageResult;
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.ReturnRequest;
 import com.backandwhite.domain.repository.OrderRepository;
 import com.backandwhite.domain.repository.ReturnRepository;
 import com.backandwhite.domain.valueobject.OrderStatus;
 import com.backandwhite.domain.valueobject.ReturnStatus;
-import com.backandwhite.application.port.out.OrderEventPort;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
-
-import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
-import static com.backandwhite.domain.exception.Message.RETURN_ORDER_NOT_DELIVERED;
-import static com.backandwhite.domain.exception.Message.RETURN_WINDOW_EXPIRED;
 
 @Log4j2
 @Service
@@ -56,8 +54,7 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
         ReturnRequest saved = returnRepository.save(request);
 
         // Publish return requested event (L-09)
-        orderEventPort.publishOrderReturnRequested(
-                order.getId(), saved.getId(), order.getUserId(), null,
+        orderEventPort.publishOrderReturnRequested(order.getId(), saved.getId(), order.getUserId(), null,
                 order.getOrderNumber(), request.getReason());
 
         return saved;
@@ -66,8 +63,7 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
     @Override
     @Transactional(readOnly = true)
     public ReturnRequest findById(String id) {
-        return returnRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ReturnRequest", id));
+        return returnRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ReturnRequest", id));
     }
 
     @Override
@@ -81,8 +77,7 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResult<ReturnRequest> findByUserId(String userId, int page, int size, String sortBy,
-            boolean ascending) {
+    public PageResult<ReturnRequest> findByUserId(String userId, int page, int size, String sortBy, boolean ascending) {
         var pageable = PageRequest.of(page, size,
                 ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
         return PageResult.from(returnRepository.findByUserId(userId, pageable));
@@ -103,11 +98,9 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
             Money refundAmount = request.getRefundAmount() != null
                     ? request.getRefundAmount()
                     : (order != null ? order.getTotal() : Money.zero());
-            orderEventPort.publishOrderReturnApproved(
-                    request.getOrderId(), updated.getId(), request.getUserId(), null,
+            orderEventPort.publishOrderReturnApproved(request.getOrderId(), updated.getId(), request.getUserId(), null,
                     orderRef, refundAmount.toPlainString());
-            log.info("Published order.return.approved for return={}, refundAmount={}",
-                    updated.getId(), refundAmount);
+            log.info("Published order.return.approved for return={}, refundAmount={}", updated.getId(), refundAmount);
         }
 
         return updated;

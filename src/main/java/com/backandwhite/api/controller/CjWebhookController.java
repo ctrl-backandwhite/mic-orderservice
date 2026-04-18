@@ -3,19 +3,19 @@ package com.backandwhite.api.controller;
 import com.backandwhite.api.dto.webhook.*;
 import com.backandwhite.application.service.CjLogisticWebhookHandler;
 import com.backandwhite.application.service.CjOrderWebhookHandler;
+import com.backandwhite.common.security.annotation.NxPublic;
 import com.backandwhite.infrastructure.db.postgres.entity.CjWebhookLogEntity;
 import com.backandwhite.infrastructure.db.postgres.repository.CjWebhookLogJpaRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Instant;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.Instant;
-import java.util.Map;
 
 /**
  * Receives push notifications (webhooks) sent by CJ Dropshipping.
@@ -47,14 +47,15 @@ public class CjWebhookController {
 
     // ─── ORDER + ORDERSPLIT ───────────────────────────────────────────────────
 
+    @NxPublic
     @PostMapping("/order")
     @Operation(summary = "Receive CJ order status change webhooks (ORDER / ORDERSPLIT)")
     public ResponseEntity<Map<String, Object>> receiveOrderWebhook(
             @RequestBody CjWebhookPayload<Map<String, Object>> rawPayload) {
 
         String messageId = rawPayload.getMessageId();
-        log.info("CJ order webhook received: messageId={} type={} messageType={}",
-                messageId, rawPayload.getType(), rawPayload.getMessageType());
+        log.info("CJ order webhook received: messageId={} type={} messageType={}", messageId, rawPayload.getType(),
+                rawPayload.getMessageType());
 
         if (isDuplicate(messageId)) {
             log.info("Duplicate webhook ignored: messageId={}", messageId);
@@ -82,14 +83,15 @@ public class CjWebhookController {
 
     // ─── LOGISTICS ───────────────────────────────────────────────────────────
 
+    @NxPublic
     @PostMapping("/logistics")
     @Operation(summary = "Receive CJ logistics / tracking update webhooks")
     public ResponseEntity<Map<String, Object>> receiveLogisticsWebhook(
             @RequestBody CjWebhookPayload<Map<String, Object>> rawPayload) {
 
         String messageId = rawPayload.getMessageId();
-        log.info("CJ logistics webhook received: messageId={} type={} messageType={}",
-                messageId, rawPayload.getType(), rawPayload.getMessageType());
+        log.info("CJ logistics webhook received: messageId={} type={} messageType={}", messageId, rawPayload.getType(),
+                rawPayload.getMessageType());
 
         if (isDuplicate(messageId)) {
             log.info("Duplicate webhook ignored: messageId={}", messageId);
@@ -118,13 +120,8 @@ public class CjWebhookController {
     private void saveLog(String messageId, String type, String messageType, String rawJson) {
         if (messageId == null)
             return;
-        CjWebhookLogEntity log = CjWebhookLogEntity.builder()
-                .messageId(messageId)
-                .type(type)
-                .messageType(messageType)
-                .rawPayload(rawJson)
-                .processedAt(Instant.now())
-                .build();
+        CjWebhookLogEntity log = CjWebhookLogEntity.builder().messageId(messageId).type(type).messageType(messageType)
+                .rawPayload(rawJson).processedAt(Instant.now()).build();
         webhookLogRepository.save(log);
     }
 
@@ -138,8 +135,7 @@ public class CjWebhookController {
     }
 
     private <T> CjWebhookPayload<T> retype(String json, Class<T> paramsClass) throws JsonProcessingException {
-        var type = objectMapper.getTypeFactory()
-                .constructParametricType(CjWebhookPayload.class, paramsClass);
+        var type = objectMapper.getTypeFactory().constructParametricType(CjWebhookPayload.class, paramsClass);
         return objectMapper.readValue(json, type);
     }
 }

@@ -1,11 +1,14 @@
 package com.backandwhite.infrastructure.client.cj.auth;
 
+import static com.backandwhite.domain.exception.Message.CJ_TOKEN_ERROR;
+
 import com.backandwhite.domain.exception.ExternalServiceException;
 import com.backandwhite.infrastructure.client.cj.dto.CjAccessTokenDataDto;
 import com.backandwhite.infrastructure.client.cj.dto.CjAccessTokenRequestDto;
 import com.backandwhite.infrastructure.client.cj.dto.CjApiResponseDto;
 import com.backandwhite.infrastructure.client.cj.dto.CjRefreshTokenRequestDto;
 import com.backandwhite.infrastructure.configuration.CjDropshippingProperties;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -14,15 +17,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientException;
 
-import java.time.Duration;
-
-import static com.backandwhite.domain.exception.Message.CJ_TOKEN_ERROR;
-
 /**
- * Handles CJ Dropshipping authentication endpoints exclusively.
- * Kept separate from
- * {@link com.backandwhite.infrastructure.client.cj.CjShoppingClient}
- * to avoid a circular dependency with {@link CjShoppingTokenManager}.
+ * Handles CJ Dropshipping authentication endpoints exclusively. Kept separate
+ * from {@link com.backandwhite.infrastructure.client.cj.CjShoppingClient} to
+ * avoid a circular dependency with {@link CjShoppingTokenManager}.
  */
 @Log4j2
 @Component
@@ -40,12 +38,9 @@ public class CjShoppingAuthClient {
         try {
             CjApiResponseDto<CjAccessTokenDataDto> response = cjShoppingWebClient.post()
                     .uri("/authentication/getAccessToken")
-                    .bodyValue(new CjAccessTokenRequestDto(properties.getApiKey()))
-                    .retrieve()
+                    .bodyValue(new CjAccessTokenRequestDto(properties.getApiKey())).retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjAccessTokenDataDto>>() {
-                    })
-                    .timeout(AUTH_TIMEOUT)
-                    .block();
+                    }).timeout(AUTH_TIMEOUT).block();
 
             if (response == null || response.getData() == null) {
                 throw CJ_TOKEN_ERROR.toExternalServiceException();
@@ -68,13 +63,9 @@ public class CjShoppingAuthClient {
         log.info("Refreshing CJ Shopping access token...");
         try {
             CjApiResponseDto<CjAccessTokenDataDto> response = cjShoppingWebClient.post()
-                    .uri("/authentication/refreshAccessToken")
-                    .bodyValue(new CjRefreshTokenRequestDto(refreshToken))
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjAccessTokenDataDto>>() {
-                    })
-                    .timeout(AUTH_TIMEOUT)
-                    .block();
+                    .uri("/authentication/refreshAccessToken").bodyValue(new CjRefreshTokenRequestDto(refreshToken))
+                    .retrieve().bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjAccessTokenDataDto>>() {
+                    }).timeout(AUTH_TIMEOUT).block();
 
             if (response == null || response.getData() == null) {
                 throw CJ_TOKEN_ERROR.toExternalServiceException();

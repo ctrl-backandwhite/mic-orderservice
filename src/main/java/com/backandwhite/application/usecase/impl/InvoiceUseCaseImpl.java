@@ -1,18 +1,17 @@
 package com.backandwhite.application.usecase.impl;
 
-import com.backandwhite.common.domain.model.PageResult;
+import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
+
 import com.backandwhite.application.usecase.InvoiceUseCase;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.domain.model.Invoice;
 import com.backandwhite.domain.repository.InvoiceRepository;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Map;
-
-import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
 
 @Service
 @RequiredArgsConstructor
@@ -29,8 +28,7 @@ public class InvoiceUseCaseImpl implements InvoiceUseCase {
     @Override
     @Transactional(readOnly = true)
     public Invoice findById(String id) {
-        return invoiceRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Invoice", id));
+        return invoiceRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Invoice", id));
     }
 
     @Override

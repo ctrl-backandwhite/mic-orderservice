@@ -1,7 +1,6 @@
 package com.backandwhite.domain.exception;
 
 import com.backandwhite.common.exception.BaseException;
-
 import java.util.List;
 
 public class ExternalServiceException extends BaseException {

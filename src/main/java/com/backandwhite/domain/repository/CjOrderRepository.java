@@ -2,7 +2,6 @@ package com.backandwhite.domain.repository;
 
 import com.backandwhite.domain.model.CjOrder;
 import com.backandwhite.domain.valueobject.CjOrderStatus;
-
 import java.util.List;
 import java.util.Optional;
 

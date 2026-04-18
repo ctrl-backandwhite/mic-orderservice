@@ -1,10 +1,9 @@
 package com.backandwhite.domain.model;
 
-import lombok.*;
-
 import com.backandwhite.common.domain.valueobject.Money;
 import java.math.BigDecimal;
 import java.time.Instant;
+import lombok.*;
 
 @Data
 @With

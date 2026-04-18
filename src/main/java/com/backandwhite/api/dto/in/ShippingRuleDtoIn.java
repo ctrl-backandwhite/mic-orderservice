@@ -3,9 +3,8 @@ package com.backandwhite.api.dto.in;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
-
 import java.math.BigDecimal;
+import lombok.*;
 
 @Data
 @With

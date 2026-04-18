@@ -3,10 +3,9 @@ package com.backandwhite.api.mapper;
 import com.backandwhite.api.dto.in.TrackingEventDtoIn;
 import com.backandwhite.api.dto.out.TrackingEventDtoOut;
 import com.backandwhite.domain.model.TrackingEvent;
+import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface TrackingApiMapper {

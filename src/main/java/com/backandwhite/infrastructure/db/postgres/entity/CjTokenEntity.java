@@ -1,9 +1,8 @@
 package com.backandwhite.infrastructure.db.postgres.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.Instant;
+import lombok.*;
 
 @Getter
 @Setter

@@ -1,14 +1,13 @@
 package com.backandwhite.api.mapper;
 
 import com.backandwhite.common.domain.valueobject.Money;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
+import org.springframework.stereotype.Component;
 
 /**
  * MapStruct helper: converts between {@link Money} (domain) and
- * {@link BigDecimal} (DTO).
- * Referenced via {@code @Mapper(uses = MoneyMapperHelper.class)}.
+ * {@link BigDecimal} (DTO). Referenced via
+ * {@code @Mapper(uses = MoneyMapperHelper.class)}.
  */
 @Component
 public class MoneyMapperHelper {

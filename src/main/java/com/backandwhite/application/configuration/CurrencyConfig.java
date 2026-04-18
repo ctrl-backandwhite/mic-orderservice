@@ -12,8 +12,8 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Currency conversion infrastructure for mic-orderservice.
- * Reads X-Currency header, caches exchange rates from mic-cmsservice.
+ * Currency conversion infrastructure for mic-orderservice. Reads X-Currency
+ * header, caches exchange rates from mic-cmsservice.
  */
 @Configuration
 public class CurrencyConfig implements WebMvcConfigurer {
@@ -23,8 +23,7 @@ public class CurrencyConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new CurrencyRequestFilter())
-                .addPathPatterns("/api/**");
+        registry.addInterceptor(new CurrencyRequestFilter()).addPathPatterns("/api/**");
     }
 
     @Bean

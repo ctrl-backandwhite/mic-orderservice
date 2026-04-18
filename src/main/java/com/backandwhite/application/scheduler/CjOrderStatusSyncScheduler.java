@@ -3,6 +3,9 @@ package com.backandwhite.application.scheduler;
 import com.backandwhite.application.usecase.CjOrderFulfillmentUseCase;
 import com.backandwhite.domain.model.CjOrder;
 import com.backandwhite.domain.repository.CjOrderRepository;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,15 +13,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-
 /**
- * Periodically syncs CJ order status and tracking information.
- * Orders that received a webhook within the last 2 hours are skipped —
- * their status is already up-to-date.
- * Runs every 15 minutes by default (configurable via app.cj.status-sync-cron).
+ * Periodically syncs CJ order status and tracking information. Orders that
+ * received a webhook within the last 2 hours are skipped — their status is
+ * already up-to-date. Runs every 15 minutes by default (configurable via
+ * app.cj.status-sync-cron).
  */
 @Log4j2
 @Component

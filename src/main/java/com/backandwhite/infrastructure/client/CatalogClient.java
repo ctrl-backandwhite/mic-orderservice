@@ -1,21 +1,19 @@
 package com.backandwhite.infrastructure.client;
 
+import com.backandwhite.application.port.out.CatalogPort;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import com.backandwhite.application.port.out.CatalogPort;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
 /**
- * HTTP client for service-to-service calls to mic-productcategory.
- * Used to validate product prices and stock availability before order creation.
+ * HTTP client for service-to-service calls to mic-productcategory. Used to
+ * validate product prices and stock availability before order creation.
  */
 @Log4j2
 @Component
@@ -23,25 +21,20 @@ public class CatalogClient implements CatalogPort {
 
     private final RestClient restClient;
 
-    public CatalogClient(
-            @Value("${services.productcategory.url:http://localhost:6002}") String baseUrl) {
+    public CatalogClient(@Value("${services.productcategory.url:http://localhost:6002}") String baseUrl) {
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
 
     /**
      * Fetches the actual sell price and category for a product/variant from the
-     * catalog.
-     * If variantId is provided, returns the variant's sell price.
+     * catalog. If variantId is provided, returns the variant's sell price.
      * Otherwise, returns the product's base sell price.
      */
     @Override
     @SuppressWarnings("unchecked")
-    public Optional<ProductVerification> getVerifiedPriceAndCategory(
-            String productId, String variantId) {
+    public Optional<ProductVerification> getVerifiedPriceAndCategory(String productId, String variantId) {
         try {
-            Map<String, Object> product = restClient.get()
-                    .uri("/api/v1/products/{id}?locale=en", productId)
-                    .retrieve()
+            Map<String, Object> product = restClient.get().uri("/api/v1/products/{id}?locale=en", productId).retrieve()
                     .body(new ParameterizedTypeReference<>() {
                     });
 
@@ -49,9 +42,7 @@ public class CatalogClient implements CatalogPort {
                 return Optional.empty();
             }
 
-            String categoryId = product.get("categoryId") != null
-                    ? product.get("categoryId").toString()
-                    : null;
+            String categoryId = product.get("categoryId") != null ? product.get("categoryId").toString() : null;
 
             // If variantId provided, find matching variant and use its price
             if (variantId != null && !variantId.isBlank()) {
@@ -69,17 +60,17 @@ public class CatalogClient implements CatalogPort {
                                     : BigDecimal.ZERO;
                             if (retail != null) {
                                 BigDecimal retailPrice = new BigDecimal(retail.toString());
-                                BigDecimal costPrice = cost != null
-                                        ? new BigDecimal(cost.toString())
-                                        : retailPrice; // fallback: no margin
-                                return Optional.of(new ProductVerification(
-                                        retailPrice, costPrice, categoryId, variantWeight));
+                                BigDecimal costPrice = cost != null ? new BigDecimal(cost.toString()) : retailPrice; // fallback:
+                                                                                                                     // no
+                                                                                                                     // margin
+                                return Optional
+                                        .of(new ProductVerification(retailPrice, costPrice, categoryId, variantWeight));
                             }
                             // Fallback: if retailPrice missing, use variantSellPrice as both
                             if (cost != null) {
                                 BigDecimal costPrice = new BigDecimal(cost.toString());
-                                return Optional.of(new ProductVerification(
-                                        costPrice, costPrice, categoryId, variantWeight));
+                                return Optional
+                                        .of(new ProductVerification(costPrice, costPrice, categoryId, variantWeight));
                             }
                         }
                     }
@@ -91,11 +82,8 @@ public class CatalogClient implements CatalogPort {
             Object costPriceRaw = product.get("costPriceRaw");
             if (sellPriceRaw != null) {
                 BigDecimal retail = new BigDecimal(sellPriceRaw.toString());
-                BigDecimal cost = costPriceRaw != null
-                        ? new BigDecimal(costPriceRaw.toString())
-                        : retail;
-                return Optional.of(new ProductVerification(
-                        retail, cost, categoryId, BigDecimal.ZERO));
+                BigDecimal cost = costPriceRaw != null ? new BigDecimal(costPriceRaw.toString()) : retail;
+                return Optional.of(new ProductVerification(retail, cost, categoryId, BigDecimal.ZERO));
             }
             // Last resort: parse sellPrice string (may be range like "1.17 -- 1.22")
             Object sellPrice = product.get("sellPrice");
@@ -103,15 +91,13 @@ public class CatalogClient implements CatalogPort {
                 String raw = sellPrice.toString().split("--")[0].trim().replaceAll("[^\\d.]", "");
                 if (!raw.isEmpty()) {
                     BigDecimal parsed = new BigDecimal(raw);
-                    return Optional.of(new ProductVerification(
-                            parsed, parsed, categoryId, BigDecimal.ZERO));
+                    return Optional.of(new ProductVerification(parsed, parsed, categoryId, BigDecimal.ZERO));
                 }
             }
 
             return Optional.empty();
         } catch (Exception e) {
-            log.warn("Failed to verify price for product={}, variant={}: {}",
-                    productId, variantId, e.getMessage());
+            log.warn("Failed to verify price for product={}, variant={}: {}", productId, variantId, e.getMessage());
             return Optional.empty();
         }
     }
@@ -125,10 +111,8 @@ public class CatalogClient implements CatalogPort {
     @Override
     public int getAvailableStock(String variantId) {
         try {
-            Map<String, Object> result = restClient.get()
-                    .uri("/api/v1/public/products/variants/{vid}/stock", variantId)
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<>() {
+            Map<String, Object> result = restClient.get().uri("/api/v1/public/products/variants/{vid}/stock", variantId)
+                    .retrieve().body(new ParameterizedTypeReference<>() {
                     });
 
             if (result != null && result.containsKey("available")) {

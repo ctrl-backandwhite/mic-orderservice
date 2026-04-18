@@ -2,6 +2,7 @@ package com.backandwhite.application.scheduler;
 
 import com.backandwhite.application.port.out.CjShoppingPort;
 import com.backandwhite.application.port.out.OrderEventPort;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,11 +10,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
-
 /**
- * Checks the CJ Dropshipping account balance every hour and publishes
- * a {@code cj.balance.low} Kafka event when it falls below the configured
+ * Checks the CJ Dropshipping account balance every hour and publishes a
+ * {@code cj.balance.low} Kafka event when it falls below the configured
  * threshold.
  */
 @Log4j2

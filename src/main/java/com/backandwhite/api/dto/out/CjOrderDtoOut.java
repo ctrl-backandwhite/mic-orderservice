@@ -1,11 +1,10 @@
 package com.backandwhite.api.dto.out;
 
 import com.backandwhite.domain.valueobject.CjOrderStatus;
-import lombok.Builder;
-import lombok.Data;
-
 import java.time.Instant;
 import java.util.Map;
+import lombok.Builder;
+import lombok.Data;
 
 @Data
 @Builder

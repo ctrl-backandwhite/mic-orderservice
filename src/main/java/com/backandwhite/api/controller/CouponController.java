@@ -8,25 +8,25 @@ import com.backandwhite.api.dto.out.CouponUsageDtoOut;
 import com.backandwhite.api.dto.out.CouponValidationDtoOut;
 import com.backandwhite.api.mapper.CouponApiMapper;
 import com.backandwhite.api.util.PageableUtils;
-import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.CouponUseCase;
 import com.backandwhite.common.constants.AppConstants;
-import com.backandwhite.common.security.annotation.NxAdmin;
-import com.backandwhite.common.security.annotation.NxUser;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.common.security.annotation.NxAdmin;
+import com.backandwhite.common.security.annotation.NxPublic;
 import com.backandwhite.domain.model.Coupon;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -36,30 +36,25 @@ public class CouponController {
     private final CouponUseCase couponUseCase;
     private final CouponApiMapper couponApiMapper;
 
+    @NxPublic
     @PostMapping("/validate")
     @Operation(summary = "Validarcupón", description = "Validauncupónydevuelveeldescuentocalculado")
-    public ResponseEntity<CouponValidationDtoOut> validate(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<CouponValidationDtoOut> validate(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelusuario") @RequestHeader(value = "X-Auth-Subject", required = false) String userId,
             @Valid @RequestBody ValidateCouponDtoIn dto) {
         try {
             Money discount = couponUseCase.validate(dto.getCode(), Money.of(dto.getCartSubtotal()), userId);
-            return ResponseEntity.ok(CouponValidationDtoOut.builder()
-                    .valid(true)
-                    .discount(discount.getAmount())
-                    .message("Cupónválido")
-                    .build());
+            return ResponseEntity.ok(CouponValidationDtoOut.builder().valid(true).discount(discount.getAmount())
+                    .message("Cupónválido").build());
         } catch (Exception e) {
-            return ResponseEntity.ok(CouponValidationDtoOut.builder()
-                    .valid(false)
-                    .discount(BigDecimal.ZERO)
-                    .message(e.getMessage())
-                    .build());
+            return ResponseEntity.ok(CouponValidationDtoOut.builder().valid(false).discount(BigDecimal.ZERO)
+                    .message(e.getMessage()).build());
         }
     }
 
     // ──AdminCRUD ───────────────────────────────────────────────────────
 
+    @NxAdmin
     @GetMapping
     @Operation(summary = "[Admin]Listarcupones")
     public ResponseEntity<PaginationDtoOut<CouponDtoOut>> findAll(
@@ -82,64 +77,59 @@ public class CouponController {
         return ResponseEntity.ok(PageableUtils.toResponse(result, couponApiMapper::toDto));
     }
 
+    @NxAdmin
     @GetMapping("/{id}")
     @Operation(summary = "[Admin]ObtenercupónporID")
-    public ResponseEntity<CouponDtoOut> findById(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<CouponDtoOut> findById(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelcupón") @PathVariable String id) {
         Coupon coupon = couponUseCase.findById(id);
         return ResponseEntity.ok(couponApiMapper.toDto(coupon));
     }
 
+    @NxAdmin
     @PostMapping
     @Operation(summary = "[Admin]Crearcupón")
-    public ResponseEntity<CouponDtoOut> create(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<CouponDtoOut> create(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Valid @RequestBody CouponDtoIn dto) {
         Coupon coupon = couponApiMapper.toDomain(dto);
         Coupon created = couponUseCase.create(coupon);
         return ResponseEntity.status(HttpStatus.CREATED).body(couponApiMapper.toDto(created));
     }
 
+    @NxAdmin
     @PutMapping("/{id}")
     @Operation(summary = "[Admin]Actualizarcupón")
-    public ResponseEntity<CouponDtoOut> update(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
-            @Parameter(description = "IDdelcupón") @PathVariable String id,
-            @Valid @RequestBody CouponDtoIn dto) {
+    public ResponseEntity<CouponDtoOut> update(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+            @Parameter(description = "IDdelcupón") @PathVariable String id, @Valid @RequestBody CouponDtoIn dto) {
         Coupon coupon = couponApiMapper.toDomain(dto);
         Coupon updated = couponUseCase.update(id, coupon);
         return ResponseEntity.ok(couponApiMapper.toDto(updated));
     }
 
+    @NxAdmin
     @DeleteMapping("/{id}")
     @Operation(summary = "[Admin]Eliminarcupón")
-    public ResponseEntity<Void> delete(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<Void> delete(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelcupón") @PathVariable String id) {
         couponUseCase.delete(id);
         return ResponseEntity.noContent().build();
     }
 
+    @NxAdmin
     @GetMapping("/{id}/usages")
     @Operation(summary = "[Admin] Historial de uso de un cupón")
     public ResponseEntity<List<CouponUsageDtoOut>> findUsages(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "ID del cupón") @PathVariable String id) {
-        var usages = couponUseCase.findUsages(id).stream()
-                .map(u -> CouponUsageDtoOut.builder()
-                        .userId(u.getUserId())
-                        .orderId(u.getOrderId())
-                        .usedAt(u.getUsedAt())
-                        .build())
-                .toList();
+        var usages = couponUseCase.findUsages(id).stream().map(u -> CouponUsageDtoOut.builder().userId(u.getUserId())
+                .orderId(u.getOrderId()).usedAt(u.getUsedAt()).build()).toList();
         return ResponseEntity.ok(usages);
     }
 
+    @NxAdmin
     @PatchMapping("/{id}/toggle")
     @Operation(summary = "[Admin]Activar/desactivarcupón")
-    public ResponseEntity<Void> toggleActive(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<Void> toggleActive(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelcupón") @PathVariable String id) {
         couponUseCase.toggleActive(id);
         return ResponseEntity.noContent().build();

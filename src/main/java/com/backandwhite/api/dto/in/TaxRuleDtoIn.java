@@ -4,10 +4,9 @@ import com.backandwhite.domain.valueobject.TaxType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.util.List;
+import lombok.*;
 
 @Data
 @With

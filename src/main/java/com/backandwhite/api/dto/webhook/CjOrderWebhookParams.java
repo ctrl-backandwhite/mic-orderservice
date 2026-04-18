@@ -5,8 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Params block for ORDER and ORDERSPLIT webhook events from CJ.
- * Field names match the CJ webhook documentation.
+ * Params block for ORDER and ORDERSPLIT webhook events from CJ. Field names
+ * match the CJ webhook documentation.
  */
 @Data
 @NoArgsConstructor

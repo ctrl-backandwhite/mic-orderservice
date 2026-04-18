@@ -8,32 +8,30 @@ import com.backandwhite.api.dto.out.ShippingOptionsDtoOut;
 import com.backandwhite.api.dto.out.ShippingRuleDtoOut;
 import com.backandwhite.api.mapper.ShippingTaxApiMapper;
 import com.backandwhite.api.util.PageableUtils;
-import com.backandwhite.common.domain.model.PageResult;
+import com.backandwhite.application.port.out.CjShoppingPort;
 import com.backandwhite.application.usecase.ShippingTaxUseCase;
 import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.common.currency.CurrencyHolder;
 import com.backandwhite.common.currency.CurrencyRateCache;
 import com.backandwhite.common.currency.PriceConversionService;
-import com.backandwhite.common.security.annotation.NxAdmin;
-import com.backandwhite.common.security.annotation.NxPublic;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.common.security.annotation.NxAdmin;
+import com.backandwhite.common.security.annotation.NxUser;
+import com.backandwhite.domain.model.CjFreightOption;
 import com.backandwhite.domain.model.ShippingCarrier;
 import com.backandwhite.domain.model.ShippingRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.List;
-
-import com.backandwhite.application.port.out.CjShoppingPort;
-import com.backandwhite.domain.model.CjFreightOption;
 
 @RestController
 @RequiredArgsConstructor
@@ -54,6 +52,7 @@ public class ShippingController {
 
     // ──ShippingOptions ─────────────────────────────────────────────────
 
+    @NxUser
     @GetMapping("/options")
     @Operation(summary = "Obteneropcionesdeenvío", description = "Devuelvelasopcionesdeenvíodisponiblesparaunpaís,pesoysubtotal")
     public ResponseEntity<ShippingOptionsDtoOut> getShippingOptions(
@@ -77,36 +76,26 @@ public class ShippingController {
         if (rules.isEmpty()) {
             // No rules for this country → return a single default option at $5 USD.
             // Frontend converts to display currency via convertFromUsd().
-            options = List.of(ShippingOptionsDtoOut.ShippingOptionDto.builder()
-                    .ruleId(DEFAULT_RULE_ID)
-                    .carrierName(DEFAULT_CARRIER_NAME)
-                    .rate(DEFAULT_RATE_USD)
-                    .estimatedDays(DEFAULT_ESTIMATED_DAYS)
-                    .freeShipping(false)
-                    .freeAbove(null)
-                    .build());
+            options = List.of(ShippingOptionsDtoOut.ShippingOptionDto.builder().ruleId(DEFAULT_RULE_ID)
+                    .carrierName(DEFAULT_CARRIER_NAME).rate(DEFAULT_RATE_USD).estimatedDays(DEFAULT_ESTIMATED_DAYS)
+                    .freeShipping(false).freeAbove(null).build());
         } else {
             // Return raw USD amounts; frontend handles display-currency conversion.
             options = rules.stream()
-                    .map(r -> ShippingOptionsDtoOut.ShippingOptionDto.builder()
-                            .ruleId(r.getId())
+                    .map(r -> ShippingOptionsDtoOut.ShippingOptionDto.builder().ruleId(r.getId())
                             .carrierName(r.getCarrierName())
                             .rate(r.getRate().isZero() ? BigDecimal.ZERO : r.getRate().getAmount())
-                            .estimatedDays(r.getEstimatedDays())
-                            .freeShipping(r.getRate().isZero())
-                            .freeAbove(r.getFreeAbove() != null ? r.getFreeAbove().getAmount() : null)
-                            .build())
+                            .estimatedDays(r.getEstimatedDays()).freeShipping(r.getRate().isZero())
+                            .freeAbove(r.getFreeAbove() != null ? r.getFreeAbove().getAmount() : null).build())
                     .toList();
         }
 
-        return ResponseEntity.ok(ShippingOptionsDtoOut.builder()
-                .options(options)
-                .currencyCode("USD")
-                .build());
+        return ResponseEntity.ok(ShippingOptionsDtoOut.builder().options(options).currencyCode("USD").build());
     }
 
     // ──CarriersCRUD ────────────────────────────────────────────────────
 
+    @NxAdmin
     @GetMapping("/carriers")
     @Operation(summary = "[Admin]Listarcarriers")
     public ResponseEntity<PaginationDtoOut<ShippingCarrierDtoOut>> findAllCarriers(
@@ -119,6 +108,7 @@ public class ShippingController {
         return ResponseEntity.ok(PageableUtils.toResponse(result, shippingTaxApiMapper::toCarrierDto));
     }
 
+    @NxAdmin
     @GetMapping("/carriers/{id}")
     @Operation(summary = "[Admin]ObtenercarrierporID")
     public ResponseEntity<ShippingCarrierDtoOut> findCarrierById(
@@ -128,6 +118,7 @@ public class ShippingController {
         return ResponseEntity.ok(shippingTaxApiMapper.toCarrierDto(carrier));
     }
 
+    @NxAdmin
     @PostMapping("/carriers")
     @Operation(summary = "[Admin]Crearcarrier")
     public ResponseEntity<ShippingCarrierDtoOut> createCarrier(
@@ -138,6 +129,7 @@ public class ShippingController {
         return ResponseEntity.status(HttpStatus.CREATED).body(shippingTaxApiMapper.toCarrierDto(created));
     }
 
+    @NxAdmin
     @PutMapping("/carriers/{id}")
     @Operation(summary = "[Admin]Actualizarcarrier")
     public ResponseEntity<ShippingCarrierDtoOut> updateCarrier(
@@ -149,10 +141,10 @@ public class ShippingController {
         return ResponseEntity.ok(shippingTaxApiMapper.toCarrierDto(updated));
     }
 
+    @NxAdmin
     @DeleteMapping("/carriers/{id}")
     @Operation(summary = "[Admin]Eliminarcarrier")
-    public ResponseEntity<Void> deleteCarrier(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<Void> deleteCarrier(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelcarrier") @PathVariable String id) {
         shippingTaxUseCase.deleteCarrier(id);
         return ResponseEntity.noContent().build();
@@ -160,6 +152,7 @@ public class ShippingController {
 
     // ──RulesCRUD ───────────────────────────────────────────────────────
 
+    @NxAdmin
     @GetMapping("/rules")
     @Operation(summary = "[Admin]Listarreglasdeenvío")
     public ResponseEntity<PaginationDtoOut<ShippingRuleDtoOut>> findAllRules(
@@ -172,29 +165,29 @@ public class ShippingController {
         return ResponseEntity.ok(PageableUtils.toResponse(result, shippingTaxApiMapper::toRuleDto));
     }
 
+    @NxAdmin
     @GetMapping("/rules/{id}")
     @Operation(summary = "[Admin]ObtenerregladeenvíoporID")
-    public ResponseEntity<ShippingRuleDtoOut> findRuleById(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<ShippingRuleDtoOut> findRuleById(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelaregla") @PathVariable String id) {
         ShippingRule rule = shippingTaxUseCase.findRuleById(id);
         return ResponseEntity.ok(shippingTaxApiMapper.toRuleDto(rule));
     }
 
+    @NxAdmin
     @PostMapping("/rules")
     @Operation(summary = "[Admin]Crearregladeenvío")
-    public ResponseEntity<ShippingRuleDtoOut> createRule(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<ShippingRuleDtoOut> createRule(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Valid @RequestBody ShippingRuleDtoIn dto) {
         ShippingRule rule = shippingTaxApiMapper.toRuleDomain(dto);
         ShippingRule created = shippingTaxUseCase.createRule(rule);
         return ResponseEntity.status(HttpStatus.CREATED).body(shippingTaxApiMapper.toRuleDto(created));
     }
 
+    @NxAdmin
     @PutMapping("/rules/{id}")
     @Operation(summary = "[Admin]Actualizarregladeenvío")
-    public ResponseEntity<ShippingRuleDtoOut> updateRule(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<ShippingRuleDtoOut> updateRule(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelaregla") @PathVariable String id,
             @Valid @RequestBody ShippingRuleDtoIn dto) {
         ShippingRule rule = shippingTaxApiMapper.toRuleDomain(dto);
@@ -202,10 +195,10 @@ public class ShippingController {
         return ResponseEntity.ok(shippingTaxApiMapper.toRuleDto(updated));
     }
 
+    @NxAdmin
     @DeleteMapping("/rules/{id}")
     @Operation(summary = "[Admin]Eliminarregladeenvío")
-    public ResponseEntity<Void> deleteRule(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<Void> deleteRule(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelaregla") @PathVariable String id) {
         shippingTaxUseCase.deleteRule(id);
         return ResponseEntity.noContent().build();
@@ -213,10 +206,10 @@ public class ShippingController {
 
     // ── CJ Freight Calculation ─────────────────────────────────────────────
 
+    @NxUser
     @GetMapping("/freight/calculate")
     @Operation(summary = "Calculate CJ freight options", description = "Queries CJ Dropshipping for available logistics options. "
-            +
-            "Pass toCountry, vid (CJ variant ID), and qty as query parameters.")
+            + "Pass toCountry, vid (CJ variant ID), and qty as query parameters.")
     public ResponseEntity<List<CjFreightOption>> calculateFreight(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "Destination country ISO-2 code, e.g. US") @RequestParam String toCountry,

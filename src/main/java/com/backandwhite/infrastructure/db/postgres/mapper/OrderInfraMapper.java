@@ -6,10 +6,9 @@ import com.backandwhite.domain.model.OrderStatusHistory;
 import com.backandwhite.infrastructure.db.postgres.entity.OrderEntity;
 import com.backandwhite.infrastructure.db.postgres.entity.OrderItemEntity;
 import com.backandwhite.infrastructure.db.postgres.entity.OrderStatusHistoryEntity;
+import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface OrderInfraMapper {

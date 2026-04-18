@@ -5,14 +5,13 @@ import com.backandwhite.domain.repository.InvoiceRepository;
 import com.backandwhite.infrastructure.db.postgres.mapper.InvoiceInfraMapper;
 import com.backandwhite.infrastructure.db.postgres.repository.InvoiceJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.specification.InvoiceSpecification;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -44,8 +43,7 @@ public class InvoiceRepositoryImpl implements InvoiceRepository {
 
     @Override
     public Page<Invoice> findAll(Map<String, Object> filters, Pageable pageable) {
-        return jpa.findAll(InvoiceSpecification.withFilters(filters), pageable)
-                .map(mapper::toDomain);
+        return jpa.findAll(InvoiceSpecification.withFilters(filters), pageable).map(mapper::toDomain);
     }
 
     @Override

@@ -1,14 +1,13 @@
 package com.backandwhite.api.dto.webhook;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.util.List;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 /**
- * Params block for LOGISTIC webhook events from CJ.
- * Carries detailed tracking/milestone information for a shipment.
+ * Params block for LOGISTIC webhook events from CJ. Carries detailed
+ * tracking/milestone information for a shipment.
  */
 @Data
 @NoArgsConstructor

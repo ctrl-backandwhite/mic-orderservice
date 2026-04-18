@@ -2,7 +2,6 @@ package com.backandwhite.domain.repository;
 
 import com.backandwhite.domain.model.Cart;
 import com.backandwhite.domain.model.CartItem;
-
 import java.util.Optional;
 
 public interface CartRepository {

@@ -4,11 +4,10 @@ import com.backandwhite.domain.valueobject.CouponType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import lombok.*;
 
 @Data
 @With

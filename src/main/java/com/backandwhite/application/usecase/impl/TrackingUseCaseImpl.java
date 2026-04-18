@@ -1,16 +1,15 @@
 package com.backandwhite.application.usecase.impl;
 
+import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
+
 import com.backandwhite.application.usecase.TrackingUseCase;
 import com.backandwhite.domain.model.TrackingEvent;
 import com.backandwhite.domain.repository.OrderRepository;
 import com.backandwhite.domain.repository.TrackingRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-
-import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
 
 @Service
 @RequiredArgsConstructor
@@ -30,8 +29,7 @@ public class TrackingUseCaseImpl implements TrackingUseCase {
     @Override
     @Transactional(readOnly = true)
     public List<TrackingEvent> findByOrderId(String orderId) {
-        orderRepository.findById(orderId)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", orderId));
+        orderRepository.findById(orderId).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", orderId));
         return trackingRepository.findByOrderId(orderId);
     }
 }

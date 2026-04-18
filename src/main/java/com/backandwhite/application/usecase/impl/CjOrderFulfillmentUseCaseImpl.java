@@ -1,5 +1,8 @@
 package com.backandwhite.application.usecase.impl;
 
+import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
+import static com.backandwhite.domain.exception.Message.CJ_ORDER_NOT_FOUND;
+
 import com.backandwhite.application.port.out.CjShoppingPort;
 import com.backandwhite.application.service.CjFulfillmentPipelineService;
 import com.backandwhite.application.usecase.CjOrderFulfillmentUseCase;
@@ -9,16 +12,12 @@ import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.repository.CjOrderRepository;
 import com.backandwhite.domain.valueobject.CjOrderStatus;
 import com.backandwhite.domain.valueobject.OrderStatus;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.UUID;
-
-import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
-import static com.backandwhite.domain.exception.Message.CJ_ORDER_NOT_FOUND;
 
 @Log4j2
 @Service

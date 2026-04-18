@@ -2,9 +2,8 @@ package com.backandwhite.infrastructure.db.postgres.mapper;
 
 import com.backandwhite.domain.model.CjOrder;
 import com.backandwhite.infrastructure.db.postgres.entity.CjOrderEntity;
-import org.mapstruct.Mapper;
-
 import java.util.List;
+import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring")
 public interface CjOrderInfraMapper {

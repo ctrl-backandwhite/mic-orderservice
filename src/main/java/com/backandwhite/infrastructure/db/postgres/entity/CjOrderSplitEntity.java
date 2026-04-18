@@ -8,8 +8,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * Records a CJ order-split event: when CJ splits one parent order into
- * multiple child orders (different warehouses / fulfilment centres).
+ * Records a CJ order-split event: when CJ splits one parent order into multiple
+ * child orders (different warehouses / fulfilment centres).
  */
 @Getter
 @Setter

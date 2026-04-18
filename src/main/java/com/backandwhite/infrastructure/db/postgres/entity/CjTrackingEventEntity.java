@@ -1,16 +1,14 @@
 package com.backandwhite.infrastructure.db.postgres.entity;
 
 import jakarta.persistence.*;
+import java.time.Instant;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.Instant;
-
 /**
  * One tracking milestone event for a CJ shipment, received via the LOGISTIC
- * webhook
- * or polled from the CJ tracking API.
+ * webhook or polled from the CJ tracking API.
  */
 @Getter
 @Setter

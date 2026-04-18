@@ -61,15 +61,13 @@ logging:
     pattern:
         level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
 
-# --- OAuth2 Resource Server (opt-in) ---
-# To enable JWT validation, uncomment and set OAUTH2_ISSUER_URI + OAUTH2_JWK_SET_URI env vars
-#spring:
-#    security:
-#        oauth2:
-#            resourceserver:
-#                jwt:
-#                    issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:6001}
-#                    jwk-set-uri: ${OAUTH2_JWK_SET_URI:http://localhost:6001/oauth2/jwks}
+---
+spring:
+    security:
+        oauth2:
+            resourceserver:
+                jwt:
+                    issuer-uri: ${JWT_ISSUER_URI:http://localhost:9000}
 
 resilience4j:
     retry:

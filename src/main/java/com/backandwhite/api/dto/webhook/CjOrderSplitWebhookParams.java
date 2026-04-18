@@ -1,15 +1,13 @@
 package com.backandwhite.api.dto.webhook;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.util.List;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 /**
- * Params block for ORDERSPLIT webhook events.
- * CJ may split one order into multiple child orders when products are
- * sourced from different warehouses.
+ * Params block for ORDERSPLIT webhook events. CJ may split one order into
+ * multiple child orders when products are sourced from different warehouses.
  */
 @Data
 @NoArgsConstructor

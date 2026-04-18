@@ -4,10 +4,9 @@ import com.backandwhite.domain.model.Cart;
 import com.backandwhite.domain.model.CartItem;
 import com.backandwhite.infrastructure.db.postgres.entity.CartEntity;
 import com.backandwhite.infrastructure.db.postgres.entity.CartItemEntity;
+import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface CartInfraMapper {

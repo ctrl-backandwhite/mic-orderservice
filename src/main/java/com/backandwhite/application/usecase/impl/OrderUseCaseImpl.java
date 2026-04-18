@@ -1,10 +1,18 @@
 package com.backandwhite.application.usecase.impl;
 
-import com.backandwhite.common.domain.model.PageResult;
+import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
+import static com.backandwhite.domain.exception.Message.*;
+
+import com.backandwhite.application.port.out.CatalogPort;
+import com.backandwhite.application.port.out.CatalogPort.ProductVerification;
+import com.backandwhite.application.port.out.CmsPort;
+import com.backandwhite.application.port.out.OrderEventPort;
 import com.backandwhite.application.usecase.CouponUseCase;
 import com.backandwhite.application.usecase.InvoiceUseCase;
 import com.backandwhite.application.usecase.OrderUseCase;
 import com.backandwhite.application.usecase.ShippingTaxUseCase;
+import com.backandwhite.common.domain.model.PageResult;
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.*;
 import com.backandwhite.domain.repository.CartRepository;
 import com.backandwhite.domain.repository.OrderRepository;
@@ -13,19 +21,6 @@ import com.backandwhite.domain.valueobject.CouponType;
 import com.backandwhite.domain.valueobject.InvoiceStatus;
 import com.backandwhite.domain.valueobject.OrderSagaStatus;
 import com.backandwhite.domain.valueobject.OrderStatus;
-import com.backandwhite.application.port.out.CatalogPort;
-import com.backandwhite.application.port.out.CatalogPort.ProductVerification;
-import com.backandwhite.application.port.out.CmsPort;
-import com.backandwhite.application.port.out.OrderEventPort;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.backandwhite.common.domain.valueobject.Money;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -34,9 +29,12 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
-
-import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
-import static com.backandwhite.domain.exception.Message.*;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Log4j2
 @Service
@@ -54,9 +52,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
     private final CmsPort cmsClient;
     private final OrderEventPort orderEventPort;
 
-    public OrderUseCaseImpl(OrderRepository orderRepository, CartRepository cartRepository,
-            CouponUseCase couponUseCase, ShippingTaxUseCase shippingTaxUseCase,
-            InvoiceUseCase invoiceUseCase, CatalogPort catalogClient,
+    public OrderUseCaseImpl(OrderRepository orderRepository, CartRepository cartRepository, CouponUseCase couponUseCase,
+            ShippingTaxUseCase shippingTaxUseCase, InvoiceUseCase invoiceUseCase, CatalogPort catalogClient,
             CmsPort cmsClient, OrderEventPort orderEventPort) {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
@@ -70,21 +67,17 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
     @Override
     @Transactional
-    public Order createFromCart(String userId, String sessionId,
-            Map<String, Object> shippingAddress,
-            Map<String, Object> billingAddress,
-            String paymentMethod, String couponCode,
-            String giftCardCode, BigDecimal giftCardAmount,
-            Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount,
-            String notes, String currencyCode) {
+    public Order createFromCart(String userId, String sessionId, Map<String, Object> shippingAddress,
+            Map<String, Object> billingAddress, String paymentMethod, String couponCode, String giftCardCode,
+            BigDecimal giftCardAmount, Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount, String notes,
+            String currencyCode) {
 
         if (shippingAddress == null || shippingAddress.isEmpty()) {
             throw MAX_ADDRESSES_REACHED.toBusinessException();
         }
 
         // 1. Get the active cart
-        Cart cart = cartRepository.findActiveByUserId(userId)
-                .or(() -> cartRepository.findActiveBySessionId(sessionId))
+        Cart cart = cartRepository.findActiveByUserId(userId).or(() -> cartRepository.findActiveBySessionId(sessionId))
                 .orElseThrow(() -> CART_NOT_FOUND.toBusinessException());
 
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
@@ -100,8 +93,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         // Pass 1: verify prices, stock, accumulate weight and rawSubtotal
         for (CartItem ci : cart.getItems()) {
-            Optional<ProductVerification> verification = catalogClient.getVerifiedPriceAndCategory(
-                    ci.getProductId(), ci.getVariantId());
+            Optional<ProductVerification> verification = catalogClient.getVerifiedPriceAndCategory(ci.getProductId(),
+                    ci.getVariantId());
             if (verification.isPresent()) {
                 BigDecimal basePrice = verification.get().price();
                 BigDecimal costPriceRaw = verification.get().costPrice();
@@ -111,13 +104,12 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 BigDecimal itemWeight = verification.get().weight();
                 productCategoryMap.put(ci.getProductId(), categoryId);
 
-                verifiedBasePrices.put(ci, new Money[] { basePriceMoney, costPriceMoney });
+                verifiedBasePrices.put(ci, new Money[]{basePriceMoney, costPriceMoney});
                 rawSubtotal = rawSubtotal.add(basePriceMoney.multiply(ci.getQuantity()));
 
                 // Accumulate weight (M-03)
                 if (itemWeight != null && itemWeight.compareTo(BigDecimal.ZERO) > 0) {
-                    totalWeight = totalWeight.add(
-                            itemWeight.multiply(BigDecimal.valueOf(ci.getQuantity())));
+                    totalWeight = totalWeight.add(itemWeight.multiply(BigDecimal.valueOf(ci.getQuantity())));
                 }
             }
 
@@ -125,8 +117,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
             if (ci.getVariantId() != null && !ci.getVariantId().isBlank()) {
                 int available = catalogClient.getAvailableStock(ci.getVariantId());
                 if (available >= 0 && available < ci.getQuantity()) {
-                    throw INSUFFICIENT_STOCK.toBusinessException(
-                            ci.getProductName(), ci.getQuantity(), available);
+                    throw INSUFFICIENT_STOCK.toBusinessException(ci.getProductName(), ci.getQuantity(), available);
                 }
             }
         }
@@ -142,9 +133,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
             Money costPriceMoney = prices[1];
             String categoryId = productCategoryMap.get(ci.getProductId());
 
-            CmsPort.CampaignDiscountResult result = cmsClient.calculateBestCampaignDiscount(
-                    activeCampaigns, ci.getProductId(), categoryId, basePriceMoney, costPriceMoney,
-                    ci.getQuantity(), rawSubtotal);
+            CmsPort.CampaignDiscountResult result = cmsClient.calculateBestCampaignDiscount(activeCampaigns,
+                    ci.getProductId(), categoryId, basePriceMoney, costPriceMoney, ci.getQuantity(), rawSubtotal);
             campaignResults.put(ci, result);
             Money campaignDiscount = result.discount();
             Money verifiedPrice = basePriceMoney.subtract(campaignDiscount).floor();
@@ -152,14 +142,13 @@ public class OrderUseCaseImpl implements OrderUseCase {
             if (!ci.getUnitPrice().equals(verifiedPrice)) {
                 log.warn(
                         "Price correction: product={}, variant={}, cart={}, verified={} (base={}, campaign discount={})",
-                        ci.getProductId(), ci.getVariantId(),
-                        ci.getUnitPrice().toPlainString(), verifiedPrice.toPlainString(),
-                        basePriceMoney.toPlainString(), campaignDiscount.toPlainString());
+                        ci.getProductId(), ci.getVariantId(), ci.getUnitPrice().toPlainString(),
+                        verifiedPrice.toPlainString(), basePriceMoney.toPlainString(),
+                        campaignDiscount.toPlainString());
                 ci.setUnitPrice(verifiedPrice);
             }
             if (!campaignDiscount.isZero()) {
-                campaignDiscountTotal = campaignDiscountTotal.add(
-                        campaignDiscount.multiply(ci.getQuantity()));
+                campaignDiscountTotal = campaignDiscountTotal.add(campaignDiscount.multiply(ci.getQuantity()));
             }
         }
 
@@ -169,8 +158,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         }
 
         // Recalculate subtotal from verified prices
-        Money subtotal = cart.getItems().stream()
-                .map(ci -> ci.getUnitPrice().multiply(ci.getQuantity()))
+        Money subtotal = cart.getItems().stream().map(ci -> ci.getUnitPrice().multiply(ci.getQuantity()))
                 .reduce(Money.zero(), Money::add);
 
         // 2. Calculate shipping (using real product weight — M-03)
@@ -200,8 +188,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
             freeShipping = coupon.getType() == CouponType.FREE_SHIPPING;
 
             // Check coupon scope and calculate eligible subtotal (M-05)
-            Money eligibleSubtotal = calculateEligibleSubtotal(
-                    coupon, cart.getItems(), productCategoryMap);
+            Money eligibleSubtotal = calculateEligibleSubtotal(coupon, cart.getItems(), productCategoryMap);
 
             boolean hasScopeRestrictions = (coupon.getAppliesToProducts() != null
                     && !coupon.getAppliesToProducts().isEmpty())
@@ -222,10 +209,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         // 4.2 Check FREE_SHIPPING campaigns (independent of coupons)
         if (!freeShipping) {
-            List<String> cartProductIds = cart.getItems().stream()
-                    .map(CartItem::getProductId).toList();
-            List<String> cartCategoryIds = cartProductIds.stream()
-                    .map(pid -> productCategoryMap.getOrDefault(pid, ""))
+            List<String> cartProductIds = cart.getItems().stream().map(CartItem::getProductId).toList();
+            List<String> cartCategoryIds = cartProductIds.stream().map(pid -> productCategoryMap.getOrDefault(pid, ""))
                     .filter(cid -> !cid.isBlank()).distinct().toList();
             if (cmsClient.isFreeShippingCampaignActive(activeCampaigns, cartProductIds, cartCategoryIds, rawSubtotal)) {
                 shippingCost = Money.zero();
@@ -237,7 +222,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
         // 4.5 Multi-currency: fetch exchange rate and convert totals
         // NOTE: Price verification (step 1.5) already corrected cart prices to USD.
         // We must convert USD → target currency here (single conversion).
-        String resolvedCurrency = (currencyCode != null && !currencyCode.isBlank()) ? currencyCode.toUpperCase()
+        String resolvedCurrency = (currencyCode != null && !currencyCode.isBlank())
+                ? currencyCode.toUpperCase()
                 : "USD";
         BigDecimal exchangeRate = BigDecimal.ONE;
         BigDecimal exchangeRateToUsd = BigDecimal.ONE;
@@ -258,58 +244,30 @@ public class OrderUseCaseImpl implements OrderUseCase {
         // Cart prices were corrected to USD in step 1.5; now convert to target
         // currency.
         final BigDecimal fxRate = exchangeRate;
-        List<OrderItem> orderItems = cart.getItems().stream()
-                .map(ci -> {
-                    // ci.getUnitPrice() is in USD (corrected by price verification)
-                    Money up = ci.getUnitPrice().multiply(fxRate);
-                    CmsPort.CampaignDiscountResult cr = campaignResults.get(ci);
-                    String campId = (cr != null) ? cr.campaignId() : null;
-                    Money campDisc = (cr != null && !cr.discount().isZero())
-                            ? cr.discount().multiply(fxRate)
-                            : null;
-                    return OrderItem.builder()
-                            .productId(ci.getProductId())
-                            .variantId(ci.getVariantId())
-                            .sku(null)
-                            .productName(ci.getProductName())
-                            .productImage(ci.getProductImage())
-                            .quantity(ci.getQuantity())
-                            .unitPrice(up)
-                            .totalPrice(up.multiply(ci.getQuantity()))
-                            .campaignId(campId)
-                            .campaignDiscount(campDisc)
-                            .build();
-                })
-                .toList();
+        List<OrderItem> orderItems = cart.getItems().stream().map(ci -> {
+            // ci.getUnitPrice() is in USD (corrected by price verification)
+            Money up = ci.getUnitPrice().multiply(fxRate);
+            CmsPort.CampaignDiscountResult cr = campaignResults.get(ci);
+            String campId = (cr != null) ? cr.campaignId() : null;
+            Money campDisc = (cr != null && !cr.discount().isZero()) ? cr.discount().multiply(fxRate) : null;
+            return OrderItem.builder().productId(ci.getProductId()).variantId(ci.getVariantId()).sku(null)
+                    .productName(ci.getProductName()).productImage(ci.getProductImage()).quantity(ci.getQuantity())
+                    .unitPrice(up).totalPrice(up.multiply(ci.getQuantity())).campaignId(campId)
+                    .campaignDiscount(campDisc).build();
+        }).toList();
 
         // 6. Build order
         Money gcAmount = Money.of(giftCardAmount);
         Money lyDiscount = Money.of(loyaltyDiscount);
         int lyPoints = loyaltyPointsUsed != null ? loyaltyPointsUsed : 0;
 
-        Order order = Order.builder()
-                .orderNumber(generateOrderNumber())
-                .userId(userId)
-                .status(OrderStatus.DRAFT)
-                .subtotal(subtotal)
-                .shippingCost(shippingCost)
-                .taxAmount(taxAmount)
-                .discountAmount(discountAmount)
-                .total(total)
-                .currencyCode(resolvedCurrency)
-                .exchangeRateToUsd(exchangeRateToUsd)
-                .couponId(couponId)
-                .giftCardCode(giftCardCode)
-                .giftCardAmount(gcAmount)
-                .loyaltyPointsUsed(lyPoints)
-                .loyaltyDiscount(lyDiscount)
-                .shippingAddress(shippingAddress)
-                .billingAddress(billingAddress != null ? billingAddress : shippingAddress)
-                .paymentMethod(paymentMethod)
-                .notes(notes)
-                .campaignDiscountTotal(campaignDiscountTotal.multiply(fxRate))
-                .items(orderItems)
-                .build();
+        Order order = Order.builder().orderNumber(generateOrderNumber()).userId(userId).status(OrderStatus.DRAFT)
+                .subtotal(subtotal).shippingCost(shippingCost).taxAmount(taxAmount).discountAmount(discountAmount)
+                .total(total).currencyCode(resolvedCurrency).exchangeRateToUsd(exchangeRateToUsd).couponId(couponId)
+                .giftCardCode(giftCardCode).giftCardAmount(gcAmount).loyaltyPointsUsed(lyPoints)
+                .loyaltyDiscount(lyDiscount).shippingAddress(shippingAddress)
+                .billingAddress(billingAddress != null ? billingAddress : shippingAddress).paymentMethod(paymentMethod)
+                .notes(notes).campaignDiscountTotal(campaignDiscountTotal.multiply(fxRate)).items(orderItems).build();
 
         Order saved = orderRepository.save(order);
 
@@ -335,31 +293,21 @@ public class OrderUseCaseImpl implements OrderUseCase {
         Order confirmed = orderRepository.update(order);
 
         // Record status history
-        OrderStatusHistory history = OrderStatusHistory.builder()
-                .orderId(confirmed.getId())
-                .fromStatus(OrderStatus.DRAFT.name())
-                .toStatus(OrderStatus.PENDING.name())
-                .changedBy(userId)
-                .reason("Payment confirmed — order activated")
-                .changedAt(Instant.now())
-                .build();
+        OrderStatusHistory history = OrderStatusHistory.builder().orderId(confirmed.getId())
+                .fromStatus(OrderStatus.DRAFT.name()).toStatus(OrderStatus.PENDING.name()).changedBy(userId)
+                .reason("Payment confirmed — order activated").changedAt(Instant.now()).build();
         orderRepository.addStatusHistory(history);
 
         // Publish order.created event
-        orderEventPort.publishOrderCreated(
-                confirmed.getId(), userId, email, confirmed.getOrderNumber(),
+        orderEventPort.publishOrderCreated(confirmed.getId(), userId, email, confirmed.getOrderNumber(),
                 confirmed.getTotal().toPlainString(),
-                confirmed.getCurrencyCode() != null ? confirmed.getCurrencyCode() : "USD",
-                confirmed.getStatus().name(),
+                confirmed.getCurrencyCode() != null ? confirmed.getCurrencyCode() : "USD", confirmed.getStatus().name(),
                 order.getItems().size(), null);
 
         // Deduct stock for each item via Kafka
         for (OrderItem oi : order.getItems()) {
             if (oi.getVariantId() != null && !oi.getVariantId().isBlank()) {
-                orderEventPort.publishStockDeducted(
-                        oi.getProductId(),
-                        oi.getVariantId(),
-                        confirmed.getId(),
+                orderEventPort.publishStockDeducted(oi.getProductId(), oi.getVariantId(), confirmed.getId(),
                         oi.getQuantity());
             }
         }
@@ -383,16 +331,10 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 invoiceLines.add(line);
             }
 
-            invoice = Invoice.builder()
-                    .invoiceNumber(generateInvoiceNumber())
-                    .orderId(confirmed.getId())
-                    .status(InvoiceStatus.PAID)
-                    .issueDate(LocalDate.now())
-                    .dueDate(LocalDate.now().plusDays(30))
-                    .subtotal(confirmed.getSubtotal())
-                    .shipping(confirmed.getShippingCost())
-                    .tax(confirmed.getTaxAmount())
-                    .total(confirmed.getTotal())
+            invoice = Invoice.builder().invoiceNumber(generateInvoiceNumber()).orderId(confirmed.getId())
+                    .status(InvoiceStatus.PAID).issueDate(LocalDate.now()).dueDate(LocalDate.now().plusDays(30))
+                    .subtotal(confirmed.getSubtotal()).shipping(confirmed.getShippingCost())
+                    .tax(confirmed.getTaxAmount()).total(confirmed.getTotal())
                     .discountAmount(
                             confirmed.getDiscountAmount() != null ? confirmed.getDiscountAmount() : Money.zero())
                     .giftCardAmount(
@@ -401,10 +343,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
                             confirmed.getLoyaltyDiscount() != null ? confirmed.getLoyaltyDiscount() : Money.zero())
                     .paymentMethod(confirmed.getPaymentMethod())
                     .currencyCode(confirmed.getCurrencyCode() != null ? confirmed.getCurrencyCode() : "USD")
-                    .customerSnapshot(customerSnapshot)
-                    .lines(invoiceLines)
-                    .notes(null)
-                    .build();
+                    .customerSnapshot(customerSnapshot).lines(invoiceLines).notes(null).build();
 
             invoiceUseCase.create(invoice);
             log.info("Invoice {} created for order {}", invoice.getInvoiceNumber(), confirmed.getOrderNumber());
@@ -415,11 +354,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
         // Send invoice email via Kafka → notification service
         if (invoice != null && email != null && !email.isBlank()) {
             try {
-                orderEventPort.publishInvoiceEmail(
-                        email,
-                        "Factura de tu pedido " + confirmed.getOrderNumber(),
-                        "order-invoice",
-                        buildInvoiceEmailVars(confirmed, invoice));
+                orderEventPort.publishInvoiceEmail(email, "Factura de tu pedido " + confirmed.getOrderNumber(),
+                        "order-invoice", buildInvoiceEmailVars(confirmed, invoice));
                 log.info("Invoice email event published for order {} to {}", confirmed.getOrderNumber(), email);
             } catch (Exception e) {
                 log.warn("Failed to publish invoice email for order {}: {}", confirmed.getId(), e.getMessage());
@@ -437,8 +373,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional(readOnly = true)
     public Order findById(String id) {
-        return orderRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        return orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
     }
 
     @Override
@@ -459,8 +394,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResult<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size,
-            String sortBy, boolean ascending) {
+    public PageResult<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size, String sortBy,
+            boolean ascending) {
         var pageable = PageRequest.of(page, size,
                 ascending ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
         return PageResult.from(orderRepository.findByUserId(userId, filters, pageable));
@@ -469,21 +404,15 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional
     public Order updateStatus(String id, OrderStatus newStatus, String changedBy, String reason) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        Order order = orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
 
         if (!order.getStatus().canTransitionTo(newStatus)) {
             throw INVALID_STATUS_TRANSITION.toBusinessException(order.getStatus(), newStatus);
         }
 
-        OrderStatusHistory history = OrderStatusHistory.builder()
-                .orderId(order.getId())
-                .fromStatus(order.getStatus().name())
-                .toStatus(newStatus.name())
-                .changedBy(changedBy)
-                .reason(reason)
-                .changedAt(Instant.now())
-                .build();
+        OrderStatusHistory history = OrderStatusHistory.builder().orderId(order.getId())
+                .fromStatus(order.getStatus().name()).toStatus(newStatus.name()).changedBy(changedBy).reason(reason)
+                .changedAt(Instant.now()).build();
 
         orderRepository.addStatusHistory(history);
 
@@ -491,32 +420,23 @@ public class OrderUseCaseImpl implements OrderUseCase {
         Order updated = orderRepository.update(order);
 
         // Publish order status event
-        orderEventPort.publishOrderStatusUpdated(
-                updated.getId(), updated.getUserId(), null,
-                updated.getOrderNumber(),
+        orderEventPort.publishOrderStatusUpdated(updated.getId(), updated.getUserId(), null, updated.getOrderNumber(),
                 history.getFromStatus(), newStatus.name());
 
         // When order is delivered, publish specific delivery event for loyalty
         // processing — always send the total converted to USD
         if (newStatus == OrderStatus.DELIVERED) {
             BigDecimal totalUsd = updated.getTotal().getAmount();
-            if (updated.getExchangeRateToUsd() != null
-                    && updated.getExchangeRateToUsd().compareTo(BigDecimal.ZERO) > 0
+            if (updated.getExchangeRateToUsd() != null && updated.getExchangeRateToUsd().compareTo(BigDecimal.ZERO) > 0
                     && !"USD".equalsIgnoreCase(updated.getCurrencyCode())) {
-                totalUsd = updated.getTotal().getAmount()
-                        .multiply(updated.getExchangeRateToUsd())
-                        .setScale(2, java.math.RoundingMode.HALF_UP);
+                totalUsd = updated.getTotal().getAmount().multiply(updated.getExchangeRateToUsd()).setScale(2,
+                        java.math.RoundingMode.HALF_UP);
             }
-            orderEventPort.publishOrderDelivered(
-                    updated.getId(),
-                    updated.getUserId(),
-                    null,
-                    updated.getOrderNumber(),
+            orderEventPort.publishOrderDelivered(updated.getId(), updated.getUserId(), null, updated.getOrderNumber(),
                     totalUsd.toPlainString());
             log.info("::> Published order.delivered event for order={}, userId={}, totalLocal={} {}, totalUsd={}",
-                    updated.getOrderNumber(), updated.getUserId(),
-                    updated.getTotal().toPlainString(), updated.getCurrencyCode(),
-                    totalUsd.toPlainString());
+                    updated.getOrderNumber(), updated.getUserId(), updated.getTotal().toPlainString(),
+                    updated.getCurrencyCode(), totalUsd.toPlainString());
         }
 
         return updated;
@@ -525,21 +445,15 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional
     public Order cancel(String id, String userId, String reason) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        Order order = orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
 
         if (!order.getStatus().canTransitionTo(OrderStatus.CANCELLED)) {
             throw INVALID_STATUS_TRANSITION.toBusinessException(order.getStatus(), OrderStatus.CANCELLED);
         }
 
-        OrderStatusHistory history = OrderStatusHistory.builder()
-                .orderId(order.getId())
-                .fromStatus(order.getStatus().name())
-                .toStatus(OrderStatus.CANCELLED.name())
-                .changedBy(userId)
-                .reason(reason != null ? reason : "Cancelled by user")
-                .changedAt(Instant.now())
-                .build();
+        OrderStatusHistory history = OrderStatusHistory.builder().orderId(order.getId())
+                .fromStatus(order.getStatus().name()).toStatus(OrderStatus.CANCELLED.name()).changedBy(userId)
+                .reason(reason != null ? reason : "Cancelled by user").changedAt(Instant.now()).build();
 
         orderRepository.addStatusHistory(history);
 
@@ -547,9 +461,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         Order cancelled = orderRepository.update(order);
 
         // Publish order.cancelled event
-        orderEventPort.publishOrderCancelled(
-                cancelled.getId(), userId, null,
-                cancelled.getOrderNumber(), reason);
+        orderEventPort.publishOrderCancelled(cancelled.getId(), userId, null, cancelled.getOrderNumber(), reason);
 
         return cancelled;
     }
@@ -557,8 +469,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional
     public Order updateSagaStatus(String id, OrderSagaStatus sagaStatus) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        Order order = orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
         order.setSagaStatus(sagaStatus);
         Order updated = orderRepository.update(order);
         log.info("::> [Saga] sagaStatus updated: orderId={}, status={}", id, sagaStatus);
@@ -568,8 +479,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional
     public Order updateCjFields(String id, String cjOrderId, String trackNumber) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        Order order = orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
         if (cjOrderId != null)
             order.setCjOrderId(cjOrderId);
         if (trackNumber != null)
@@ -618,9 +528,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
     /**
      * Calculates the subtotal of cart items that match the coupon's scope
-     * restrictions.
-     * If the coupon has no scope (appliesToProducts/Categories both empty), returns
-     * full subtotal.
+     * restrictions. If the coupon has no scope (appliesToProducts/Categories both
+     * empty), returns full subtotal.
      */
     private Money calculateEligibleSubtotal(Coupon coupon, List<CartItem> items,
             Map<String, String> productCategoryMap) {
@@ -632,29 +541,25 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         if (!hasProductScope && !hasCategoryScope) {
             // No scope restrictions — all items are eligible
-            return items.stream()
-                    .map(ci -> ci.getUnitPrice().multiply(ci.getQuantity()))
-                    .reduce(Money.zero(), Money::add);
+            return items.stream().map(ci -> ci.getUnitPrice().multiply(ci.getQuantity())).reduce(Money.zero(),
+                    Money::add);
         }
 
-        return items.stream()
-                .filter(ci -> {
-                    if (hasProductScope && scopeProducts.contains(ci.getProductId())) {
-                        return true;
-                    }
-                    if (hasCategoryScope) {
-                        String catId = productCategoryMap.get(ci.getProductId());
-                        return catId != null && scopeCategories.contains(catId);
-                    }
-                    return false;
-                })
-                .map(ci -> ci.getUnitPrice().multiply(ci.getQuantity()))
-                .reduce(Money.zero(), Money::add);
+        return items.stream().filter(ci -> {
+            if (hasProductScope && scopeProducts.contains(ci.getProductId())) {
+                return true;
+            }
+            if (hasCategoryScope) {
+                String catId = productCategoryMap.get(ci.getProductId());
+                return catId != null && scopeCategories.contains(catId);
+            }
+            return false;
+        }).map(ci -> ci.getUnitPrice().multiply(ci.getQuantity())).reduce(Money.zero(), Money::add);
     }
 
     /**
-     * Calculates the discount for a coupon based on the given subtotal.
-     * Mirrors the logic in CouponUseCaseImpl.calculateDiscount.
+     * Calculates the discount for a coupon based on the given subtotal. Mirrors the
+     * logic in CouponUseCaseImpl.calculateDiscount.
      */
     private Money calculateCouponDiscount(Coupon coupon, Money subtotal) {
         if (coupon.getType() == CouponType.PERCENTAGE) {
@@ -668,9 +573,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
     }
 
     /**
-     * Builds the template variables map for the invoice email notification.
-     * All values are strings (as required by the Avro EmailNotificationEvent
-     * schema).
+     * Builds the template variables map for the invoice email notification. All
+     * values are strings (as required by the Avro EmailNotificationEvent schema).
      */
     private Map<String, String> buildInvoiceEmailVars(Order order, Invoice invoice) {
         Map<String, String> vars = new LinkedHashMap<>();
@@ -724,15 +628,13 @@ public class OrderUseCaseImpl implements OrderUseCase {
             String price = fmt(l.get("unitPrice"));
             String total = fmt(l.get("total"));
 
-            sb.append("<tr><td style=\"background:#ffffff;padding:0 40px;\">")
-                    .append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border-bottom:1px solid #f1f5f9;\">")
-                    .append("<tr>")
-                    .append("<td style=\"padding:12px 0;\">")
+            sb.append("<tr><td style=\"background:#ffffff;padding:0 40px;\">").append(
+                    "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border-bottom:1px solid #f1f5f9;\">")
+                    .append("<tr>").append("<td style=\"padding:12px 0;\">")
                     .append("<p style=\"margin:0 0 2px;font-size:14px;color:#1e293b;font-weight:500;\">")
                     .append(escHtml(name)).append("</p>")
                     .append("<p style=\"margin:0;font-size:11px;color:#94a3b8;font-family:'Courier New',monospace;\">")
-                    .append(escHtml(sku)).append("</p>")
-                    .append("</td>")
+                    .append(escHtml(sku)).append("</p>").append("</td>")
                     .append("<td align=\"center\" style=\"padding:12px 0;font-size:14px;color:#334155;width:50px;\">")
                     .append(escHtml(qty)).append("</td>")
                     .append("<td align=\"right\" style=\"padding:12px 0;font-size:14px;color:#334155;width:80px;\">")
@@ -740,8 +642,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
                     .append(escHtml(currency)).append("</span></td>")
                     .append("<td align=\"right\" style=\"padding:12px 0;font-size:14px;color:#1e293b;font-weight:500;width:80px;\">")
                     .append(escHtml(total)).append(" <span style=\"font-size:11px;color:#94a3b8;\">")
-                    .append(escHtml(currency)).append("</span></td>")
-                    .append("</tr></table></td></tr>");
+                    .append(escHtml(currency)).append("</span></td>").append("</tr></table></td></tr>");
         }
         return sb.toString();
     }

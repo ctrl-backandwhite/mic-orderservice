@@ -1,27 +1,24 @@
 package com.backandwhite.application.usecase.impl;
 
-import com.backandwhite.common.domain.model.PageResult;
+import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
+import static com.backandwhite.domain.exception.Message.*;
+
 import com.backandwhite.application.usecase.CouponUseCase;
+import com.backandwhite.common.domain.model.PageResult;
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.Coupon;
 import com.backandwhite.domain.model.CouponUsage;
 import com.backandwhite.domain.repository.CouponRepository;
-import com.backandwhite.common.domain.valueobject.Money;
-
-import java.util.List;
 import com.backandwhite.domain.valueobject.CouponType;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.Map;
-
-import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
-import static com.backandwhite.domain.exception.Message.*;
 
 @Log4j2
 @Service
@@ -39,8 +36,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional
     public Coupon update(String id, Coupon coupon) {
-        couponRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
+        couponRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
         coupon.setId(id);
         return couponRepository.update(coupon);
     }
@@ -48,8 +44,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional(readOnly = true)
     public Coupon findById(String id) {
-        return couponRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
+        return couponRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
     }
 
     @Override
@@ -64,8 +59,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional
     public void delete(String id) {
-        couponRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
+        couponRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
         couponRepository.delete(id);
     }
 
@@ -81,8 +75,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional(readOnly = true)
     public Coupon findByCode(String code) {
-        return couponRepository.findByCode(code)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", code));
+        return couponRepository.findByCode(code).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", code));
     }
 
     @Override
@@ -127,20 +120,15 @@ public class CouponUseCaseImpl implements CouponUseCase {
     public void applyCouponToOrder(String couponId, String userId, String orderId) {
         couponRepository.incrementUsedCount(couponId);
         if (userId != null) {
-            couponRepository.saveUsage(CouponUsage.builder()
-                    .couponId(couponId)
-                    .userId(userId)
-                    .orderId(orderId)
-                    .usedAt(Instant.now())
-                    .build());
+            couponRepository.saveUsage(CouponUsage.builder().couponId(couponId).userId(userId).orderId(orderId)
+                    .usedAt(Instant.now()).build());
         }
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CouponUsage> findUsages(String couponId) {
-        couponRepository.findById(couponId)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", couponId));
+        couponRepository.findById(couponId).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", couponId));
         return couponRepository.findUsagesByCouponId(couponId);
     }
 

@@ -1,11 +1,10 @@
 package com.backandwhite.domain.model;
 
-import com.backandwhite.domain.valueobject.CouponType;
-import lombok.*;
-
 import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.domain.valueobject.CouponType;
 import java.time.Instant;
 import java.util.List;
+import lombok.*;
 
 @Data
 @With

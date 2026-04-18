@@ -3,10 +3,9 @@ package com.backandwhite.api.mapper;
 import com.backandwhite.api.dto.in.ReturnRequestDtoIn;
 import com.backandwhite.api.dto.out.ReturnRequestDtoOut;
 import com.backandwhite.domain.model.ReturnRequest;
+import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.util.List;
 
 @Mapper(componentModel = "spring", uses = MoneyMapperHelper.class)
 public interface ReturnApiMapper {

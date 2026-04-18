@@ -1,9 +1,11 @@
 package com.backandwhite.infrastructure.client.cj;
 
+import static com.backandwhite.domain.exception.Message.*;
+
 import com.backandwhite.application.port.out.CjShoppingPort;
 import com.backandwhite.domain.exception.ExternalServiceException;
-import com.backandwhite.domain.model.CjFulfillmentResult;
 import com.backandwhite.domain.model.CjFreightOption;
+import com.backandwhite.domain.model.CjFulfillmentResult;
 import com.backandwhite.domain.model.CjOrder;
 import com.backandwhite.domain.model.CjTrackInfo;
 import com.backandwhite.domain.model.Order;
@@ -13,6 +15,13 @@ import com.backandwhite.infrastructure.client.cj.auth.CjShoppingTokenManager;
 import com.backandwhite.infrastructure.client.cj.dto.*;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -21,16 +30,6 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientException;
-
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import static com.backandwhite.domain.exception.Message.*;
 
 @Log4j2
 @Component
@@ -61,14 +60,10 @@ public class CjShoppingClient implements CjShoppingPort {
 
         try {
             CjApiResponseDto<CjCreateOrderV3ResponseDto> response = cjShoppingWebClient.post()
-                    .uri("/shopping/order/createOrderV3")
-                    .header("CJ-Access-Token", accessToken)
-                    .bodyValue(request)
+                    .uri("/shopping/order/createOrderV3").header("CJ-Access-Token", accessToken).bodyValue(request)
                     .retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjCreateOrderV3ResponseDto>>() {
-                    })
-                    .timeout(DATA_TIMEOUT)
-                    .block();
+                    }).timeout(DATA_TIMEOUT).block();
 
             if (response == null || !response.isSuccess() || response.getData() == null) {
                 String msg = response != null ? response.getMessage() : "null response";
@@ -78,11 +73,8 @@ public class CjShoppingClient implements CjShoppingPort {
             CjCreateOrderV3ResponseDto data = response.getData();
             log.info("::> Order={} submitted to CJ. cjOrderId={}", order.getId(), data.getOrderId());
 
-            return CjOrder.builder()
-                    .orderId(order.getId())
-                    .cjOrderId(data.getOrderId())
-                    .cjOrderStatus(CjOrderStatus.UNPAID)
-                    .productInfoList(productListToMap(data.getProductList()))
+            return CjOrder.builder().orderId(order.getId()).cjOrderId(data.getOrderId())
+                    .cjOrderStatus(CjOrderStatus.UNPAID).productInfoList(productListToMap(data.getProductList()))
                     .build();
 
         } catch (ExternalServiceException e) {
@@ -105,29 +97,20 @@ public class CjShoppingClient implements CjShoppingPort {
 
         try {
             CjApiResponseDto<CjOrderDetailResponseDto> response = cjShoppingWebClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/shopping/order/getOrderDetailByOrderId")
-                            .queryParam("orderId", cjOrderId)
-                            .build())
-                    .header("CJ-Access-Token", accessToken)
-                    .retrieve()
+                    .uri(uriBuilder -> uriBuilder.path("/shopping/order/getOrderDetailByOrderId")
+                            .queryParam("orderId", cjOrderId).build())
+                    .header("CJ-Access-Token", accessToken).retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjOrderDetailResponseDto>>() {
-                    })
-                    .timeout(DATA_TIMEOUT)
-                    .block();
+                    }).timeout(DATA_TIMEOUT).block();
 
             if (response == null || response.getData() == null) {
                 throw CJ_DATA_ERROR.toExternalServiceException("CJ order detail cjOrderId=" + cjOrderId);
             }
 
             CjOrderDetailResponseDto data = response.getData();
-            return CjOrder.builder()
-                    .cjOrderId(data.getOrderId())
-                    .shipmentOrderId(data.getShipmentOrderId())
-                    .cjOrderStatus(CjOrderStatus.fromString(data.getOrderStatus()))
-                    .trackNumber(data.getTrackNumber())
-                    .logisticName(data.getLogisticName())
-                    .productInfoList(productListToMap(data.getProductList()))
+            return CjOrder.builder().cjOrderId(data.getOrderId()).shipmentOrderId(data.getShipmentOrderId())
+                    .cjOrderStatus(CjOrderStatus.fromString(data.getOrderStatus())).trackNumber(data.getTrackNumber())
+                    .logisticName(data.getLogisticName()).productInfoList(productListToMap(data.getProductList()))
                     .build();
 
         } catch (ExternalServiceException e) {
@@ -150,13 +133,9 @@ public class CjShoppingClient implements CjShoppingPort {
 
         try {
             CjApiResponseDto<CjBalanceResponseDto> response = cjShoppingWebClient.get()
-                    .uri("/shopping/account/getAccountBalance")
-                    .header("CJ-Access-Token", accessToken)
-                    .retrieve()
+                    .uri("/shopping/account/getAccountBalance").header("CJ-Access-Token", accessToken).retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjBalanceResponseDto>>() {
-                    })
-                    .timeout(DATA_TIMEOUT)
-                    .block();
+                    }).timeout(DATA_TIMEOUT).block();
 
             if (response == null || response.getData() == null) {
                 return "unavailable";
@@ -178,12 +157,9 @@ public class CjShoppingClient implements CjShoppingPort {
         String accessToken = cjShoppingTokenManager.getValidAccessToken();
         try {
             CjApiResponseDto<CjBalanceResponseDto> response = cjShoppingWebClient.get()
-                    .uri("/shopping/account/getAccountBalance")
-                    .header("CJ-Access-Token", accessToken)
-                    .retrieve()
+                    .uri("/shopping/account/getAccountBalance").header("CJ-Access-Token", accessToken).retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjBalanceResponseDto>>() {
-                    })
-                    .timeout(DATA_TIMEOUT).block();
+                    }).timeout(DATA_TIMEOUT).block();
             if (response == null || response.getData() == null)
                 return null;
             String raw = response.getData().getBalance();
@@ -203,16 +179,11 @@ public class CjShoppingClient implements CjShoppingPort {
         log.info("::> CJ addCart cjOrderId={}", cjOrderId);
         String accessToken = cjShoppingTokenManager.getValidAccessToken();
         try {
-            CjAddCartRequestDto req = CjAddCartRequestDto.builder()
-                    .cjOrderIdList(List.of(cjOrderId)).build();
-            CjApiResponseDto<CjAddCartResponseDto> response = cjShoppingWebClient.post()
-                    .uri("/shopping/order/addCart")
-                    .header("CJ-Access-Token", accessToken)
-                    .bodyValue(req)
-                    .retrieve()
+            CjAddCartRequestDto req = CjAddCartRequestDto.builder().cjOrderIdList(List.of(cjOrderId)).build();
+            CjApiResponseDto<CjAddCartResponseDto> response = cjShoppingWebClient.post().uri("/shopping/order/addCart")
+                    .header("CJ-Access-Token", accessToken).bodyValue(req).retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjAddCartResponseDto>>() {
-                    })
-                    .timeout(DATA_TIMEOUT).block();
+                    }).timeout(DATA_TIMEOUT).block();
             if (response == null || !response.isSuccess()) {
                 String msg = response != null ? response.getMessage() : "null response";
                 log.warn("::> CJ addCart failed for {}: {}", cjOrderId, msg);
@@ -222,8 +193,7 @@ public class CjShoppingClient implements CjShoppingPort {
             boolean hasIntercepts = data != null && data.getInterceptOrders() != null
                     && !data.getInterceptOrders().isEmpty();
             if (hasIntercepts) {
-                String reason = data.getInterceptOrders().stream()
-                        .map(i -> i.getCjOrderId() + ": " + i.getReason())
+                String reason = data.getInterceptOrders().stream().map(i -> i.getCjOrderId() + ": " + i.getReason())
                         .collect(Collectors.joining("; "));
                 log.warn("::> CJ addCart intercepted {}: {}", cjOrderId, reason);
                 return CjFulfillmentResult.builder().success(false).errorReason(reason).build();
@@ -245,16 +215,12 @@ public class CjShoppingClient implements CjShoppingPort {
         log.info("::> CJ addCartConfirm for cjOrderId={}", cjOrderId);
         String accessToken = cjShoppingTokenManager.getValidAccessToken();
         try {
-            CjAddCartRequestDto req = CjAddCartRequestDto.builder()
-                    .cjOrderIdList(List.of(cjOrderId)).build();
+            CjAddCartRequestDto req = CjAddCartRequestDto.builder().cjOrderIdList(List.of(cjOrderId)).build();
             CjApiResponseDto<CjAddCartConfirmResponseDto> response = cjShoppingWebClient.post()
-                    .uri("/shopping/order/addCartConfirm")
-                    .header("CJ-Access-Token", accessToken)
-                    .bodyValue(req)
+                    .uri("/shopping/order/addCartConfirm").header("CJ-Access-Token", accessToken).bodyValue(req)
                     .retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjAddCartConfirmResponseDto>>() {
-                    })
-                    .timeout(DATA_TIMEOUT).block();
+                    }).timeout(DATA_TIMEOUT).block();
             if (response == null || !response.isSuccess() || response.getData() == null) {
                 String msg = response != null ? response.getMessage() : "null response";
                 log.warn("::> CJ addCartConfirm failed for {}: {}", cjOrderId, msg);
@@ -288,13 +254,10 @@ public class CjShoppingClient implements CjShoppingPort {
             CjGenerateParentOrderRequestDto req = CjGenerateParentOrderRequestDto.builder()
                     .shipmentOrderId(shipmentOrderId).build();
             CjApiResponseDto<CjGenerateParentOrderResponseDto> response = cjShoppingWebClient.post()
-                    .uri("/shopping/order/saveGenerateParentOrder")
-                    .header("CJ-Access-Token", accessToken)
-                    .bodyValue(req)
-                    .retrieve()
+                    .uri("/shopping/order/saveGenerateParentOrder").header("CJ-Access-Token", accessToken)
+                    .bodyValue(req).retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjGenerateParentOrderResponseDto>>() {
-                    })
-                    .timeout(DATA_TIMEOUT).block();
+                    }).timeout(DATA_TIMEOUT).block();
             if (response == null || !response.isSuccess() || response.getData() == null) {
                 String msg = response != null ? response.getMessage() : "null response";
                 log.warn("::> CJ generateParentOrder failed for {}: {}", shipmentOrderId, msg);
@@ -308,14 +271,8 @@ public class CjShoppingClient implements CjShoppingPort {
                 productAmount = data.getPaymentInformation().getProductAmount();
                 taxFee = data.getPaymentInformation().getTaxFee();
             }
-            return CjFulfillmentResult.builder()
-                    .success(true)
-                    .payId(data.getPayId())
-                    .actualPayment(actualPayment)
-                    .postage(postage)
-                    .productAmount(productAmount)
-                    .taxFee(taxFee)
-                    .build();
+            return CjFulfillmentResult.builder().success(true).payId(data.getPayId()).actualPayment(actualPayment)
+                    .postage(postage).productAmount(productAmount).taxFee(taxFee).build();
         } catch (WebClientException e) {
             log.error("::> CJ generateParentOrder WebClient error for {}: {}", shipmentOrderId, e.getMessage(), e);
             return CjFulfillmentResult.builder().success(false).errorReason(e.getMessage()).build();
@@ -332,16 +289,12 @@ public class CjShoppingClient implements CjShoppingPort {
         log.info("::> CJ payBalanceV2 shipmentsId={} payId={}", shipmentOrderId, payId);
         String accessToken = cjShoppingTokenManager.getValidAccessToken();
         try {
-            CjPayBalanceV2RequestDto req = CjPayBalanceV2RequestDto.builder()
-                    .shipmentOrderId(shipmentOrderId).payId(payId).build();
-            CjApiResponseDto<Object> response = cjShoppingWebClient.post()
-                    .uri("/shopping/pay/payBalanceV2")
-                    .header("CJ-Access-Token", accessToken)
-                    .bodyValue(req)
-                    .retrieve()
+            CjPayBalanceV2RequestDto req = CjPayBalanceV2RequestDto.builder().shipmentOrderId(shipmentOrderId)
+                    .payId(payId).build();
+            CjApiResponseDto<Object> response = cjShoppingWebClient.post().uri("/shopping/pay/payBalanceV2")
+                    .header("CJ-Access-Token", accessToken).bodyValue(req).retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<Object>>() {
-                    })
-                    .timeout(DATA_TIMEOUT).block();
+                    }).timeout(DATA_TIMEOUT).block();
             if (response == null || !response.isSuccess()) {
                 String msg = response != null ? response.getMessage() : "null response";
                 throw CJ_ORDER_SUBMIT_FAILED.toExternalServiceException(shipmentOrderId, "payBalanceV2: " + msg);
@@ -366,18 +319,13 @@ public class CjShoppingClient implements CjShoppingPort {
         String accessToken = cjShoppingTokenManager.getValidAccessToken();
         try {
             List<CjFreightCalculateRequestDto.ProductItem> dtoProducts = products.stream()
-                    .map(p -> CjFreightCalculateRequestDto.ProductItem.builder()
-                            .vid(p.getVid()).quantity(p.getQuantity()).build())
+                    .map(p -> CjFreightCalculateRequestDto.ProductItem.builder().vid(p.getVid())
+                            .quantity(p.getQuantity()).build())
                     .collect(Collectors.toList());
-            CjFreightCalculateRequestDto req = CjFreightCalculateRequestDto.builder()
-                    .startCountryCode(fromCountryCode)
-                    .endCountryCode(toCountryCode)
-                    .products(dtoProducts).build();
+            CjFreightCalculateRequestDto req = CjFreightCalculateRequestDto.builder().startCountryCode(fromCountryCode)
+                    .endCountryCode(toCountryCode).products(dtoProducts).build();
             CjApiResponseDto<List<CjFreightCalculateResponseDto>> response = cjShoppingWebClient.post()
-                    .uri("/logistic/freightCalculate")
-                    .header("CJ-Access-Token", accessToken)
-                    .bodyValue(req)
-                    .retrieve()
+                    .uri("/logistic/freightCalculate").header("CJ-Access-Token", accessToken).bodyValue(req).retrieve()
                     .bodyToMono(
                             new ParameterizedTypeReference<CjApiResponseDto<List<CjFreightCalculateResponseDto>>>() {
                             })
@@ -388,14 +336,10 @@ public class CjShoppingClient implements CjShoppingPort {
                 return Collections.emptyList();
             }
             return response.getData().stream()
-                    .map(d -> CjFreightOption.builder()
-                            .logisticName(d.getLogisticName())
-                            .logisticPrice(d.getLogisticPrice())
-                            .logisticPriceCn(d.getLogisticPriceCn())
-                            .logisticAging(d.getLogisticAging())
-                            .taxesFee(d.getTaxesFee())
-                            .clearanceOperationFee(d.getClearanceOperationFee())
-                            .build())
+                    .map(d -> CjFreightOption.builder().logisticName(d.getLogisticName())
+                            .logisticPrice(d.getLogisticPrice()).logisticPriceCn(d.getLogisticPriceCn())
+                            .logisticAging(d.getLogisticAging()).taxesFee(d.getTaxesFee())
+                            .clearanceOperationFee(d.getClearanceOperationFee()).build())
                     .collect(Collectors.toList());
         } catch (WebClientException e) {
             log.error("::> CJ calculateFreight WebClient error: {}", e.getMessage(), e);
@@ -414,27 +358,18 @@ public class CjShoppingClient implements CjShoppingPort {
         String accessToken = cjShoppingTokenManager.getValidAccessToken();
         try {
             CjApiResponseDto<CjTrackInfoResponseDto> response = cjShoppingWebClient.get()
-                    .uri(uriBuilder -> uriBuilder.path("/logistic/trackInfo")
-                            .queryParam("trackNumber", trackNumber).build())
-                    .header("CJ-Access-Token", accessToken)
-                    .retrieve()
+                    .uri(uriBuilder -> uriBuilder.path("/logistic/trackInfo").queryParam("trackNumber", trackNumber)
+                            .build())
+                    .header("CJ-Access-Token", accessToken).retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<CjTrackInfoResponseDto>>() {
-                    })
-                    .timeout(DATA_TIMEOUT).block();
+                    }).timeout(DATA_TIMEOUT).block();
             if (response == null || response.getData() == null)
                 return null;
             CjTrackInfoResponseDto d = response.getData();
-            return CjTrackInfo.builder()
-                    .trackingNumber(d.getTrackingNumber())
-                    .logisticName(d.getLogisticName())
-                    .trackingFrom(d.getTrackingFrom())
-                    .trackingTo(d.getTrackingTo())
-                    .deliveryDay(d.getDeliveryDay())
-                    .deliveryTime(d.getDeliveryTime())
-                    .trackingStatus(d.getTrackingStatus())
-                    .lastMileCarrier(d.getLastMileCarrier())
-                    .lastTrackNumber(d.getLastTrackNumber())
-                    .build();
+            return CjTrackInfo.builder().trackingNumber(d.getTrackingNumber()).logisticName(d.getLogisticName())
+                    .trackingFrom(d.getTrackingFrom()).trackingTo(d.getTrackingTo()).deliveryDay(d.getDeliveryDay())
+                    .deliveryTime(d.getDeliveryTime()).trackingStatus(d.getTrackingStatus())
+                    .lastMileCarrier(d.getLastMileCarrier()).lastTrackNumber(d.getLastTrackNumber()).build();
         } catch (Exception e) {
             log.warn("::> CJ getTrackInfo failed for {}: {}", trackNumber, e.getMessage());
             return null;
@@ -449,13 +384,11 @@ public class CjShoppingClient implements CjShoppingPort {
         String accessToken = cjShoppingTokenManager.getValidAccessToken();
         try {
             CjApiResponseDto<Object> response = cjShoppingWebClient.delete()
-                    .uri(uriBuilder -> uriBuilder.path("/shopping/order/deleteOrder")
-                            .queryParam("orderId", cjOrderId).build())
-                    .header("CJ-Access-Token", accessToken)
-                    .retrieve()
+                    .uri(uriBuilder -> uriBuilder.path("/shopping/order/deleteOrder").queryParam("orderId", cjOrderId)
+                            .build())
+                    .header("CJ-Access-Token", accessToken).retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<Object>>() {
-                    })
-                    .timeout(DATA_TIMEOUT).block();
+                    }).timeout(DATA_TIMEOUT).block();
             if (response == null || !response.isSuccess()) {
                 String msg = response != null ? response.getMessage() : "null response";
                 log.warn("::> CJ deleteOrder failed for {}: {}", cjOrderId, msg);
@@ -470,45 +403,26 @@ public class CjShoppingClient implements CjShoppingPort {
     // ── Private helpers ──────────────────────────────────────────────────────
 
     private CjCreateOrderV3RequestDto buildCreateOrderRequest(Order order) {
-        Map<String, Object> addr = order.getShippingAddress() != null
-                ? order.getShippingAddress()
-                : Map.of();
+        Map<String, Object> addr = order.getShippingAddress() != null ? order.getShippingAddress() : Map.of();
 
         String fullName = str(addr.get("fullName"));
         String firstName = fullName.contains(" ") ? fullName.split(" ")[0] : fullName;
         String lastName = fullName.contains(" ") ? fullName.substring(fullName.indexOf(' ') + 1) : "";
 
         CjCreateOrderV3RequestDto.ShippingAddressDto shippingAddress = CjCreateOrderV3RequestDto.ShippingAddressDto
-                .builder()
-                .countryCode(str(addr.get("country")))
-                .province(str(addr.get("region")))
-                .city(str(addr.get("city")))
-                .address(str(addr.get("street")))
-                .address2(str(addr.get("street2")))
-                .zipCode(str(addr.get("postalCode")))
-                .phone(str(addr.get("phone")))
-                .firstName(firstName)
-                .lastName(lastName)
-                .email(str(addr.get("email")))
-                .houseNumber(str(addr.get("houseNumber")))
-                .build();
+                .builder().countryCode(str(addr.get("country"))).province(str(addr.get("region")))
+                .city(str(addr.get("city"))).address(str(addr.get("street"))).address2(str(addr.get("street2")))
+                .zipCode(str(addr.get("postalCode"))).phone(str(addr.get("phone"))).firstName(firstName)
+                .lastName(lastName).email(str(addr.get("email"))).houseNumber(str(addr.get("houseNumber"))).build();
 
-        List<CjOrderProductItemDto> products = order.getItems().stream()
-                .map(item -> CjOrderProductItemDto.builder()
-                        .vid(getCjVariantId(item))
-                        .quantity(item.getQuantity())
-                        .shippingName(defaultLogisticName)
-                        .build())
+        List<CjOrderProductItemDto> products = order
+                .getItems().stream().map(item -> CjOrderProductItemDto.builder().vid(getCjVariantId(item))
+                        .quantity(item.getQuantity()).shippingName(defaultLogisticName).build())
                 .collect(Collectors.toList());
 
-        return CjCreateOrderV3RequestDto.builder()
-                .orderNumber(order.getOrderNumber())
-                .shippingAddress(shippingAddress)
-                .products(products)
-                .logisticName(defaultLogisticName)
-                .fromCountryCode(fromCountryCode)
-                .remark(order.getNotes())
-                .build();
+        return CjCreateOrderV3RequestDto.builder().orderNumber(order.getOrderNumber()).shippingAddress(shippingAddress)
+                .products(products).logisticName(defaultLogisticName).fromCountryCode(fromCountryCode)
+                .remark(order.getNotes()).build();
     }
 
     private String getCjVariantId(OrderItem item) {

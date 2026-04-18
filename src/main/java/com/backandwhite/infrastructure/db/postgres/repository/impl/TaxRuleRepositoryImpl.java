@@ -4,15 +4,14 @@ import com.backandwhite.domain.model.TaxRule;
 import com.backandwhite.domain.repository.TaxRuleRepository;
 import com.backandwhite.infrastructure.db.postgres.mapper.ShippingTaxInfraMapper;
 import com.backandwhite.infrastructure.db.postgres.repository.TaxRuleJpaRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
@@ -45,11 +44,9 @@ public class TaxRuleRepositoryImpl implements TaxRuleRepository {
     @Override
     public List<TaxRule> findByCountryAndRegion(String country, String region) {
         if (region != null && !region.isBlank()) {
-            return jpa.findByCountryAndRegionAndActiveTrue(country, region).stream()
-                    .map(mapper::toTaxDomain).toList();
+            return jpa.findByCountryAndRegionAndActiveTrue(country, region).stream().map(mapper::toTaxDomain).toList();
         }
-        return jpa.findByCountryAndActiveTrue(country).stream()
-                .map(mapper::toTaxDomain).toList();
+        return jpa.findByCountryAndActiveTrue(country).stream().map(mapper::toTaxDomain).toList();
     }
 
     @Override

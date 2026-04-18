@@ -7,15 +7,14 @@ import com.backandwhite.infrastructure.db.postgres.mapper.CouponInfraMapper;
 import com.backandwhite.infrastructure.db.postgres.repository.CouponJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.repository.CouponUsageJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.specification.CouponSpecification;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
@@ -48,8 +47,7 @@ public class CouponRepositoryImpl implements CouponRepository {
 
     @Override
     public Page<Coupon> findAll(Map<String, Object> filters, Pageable pageable) {
-        return couponJpa.findAll(CouponSpecification.withFilters(filters), pageable)
-                .map(mapper::toDomain);
+        return couponJpa.findAll(CouponSpecification.withFilters(filters), pageable).map(mapper::toDomain);
     }
 
     @Override
@@ -75,8 +73,6 @@ public class CouponRepositoryImpl implements CouponRepository {
 
     @Override
     public List<CouponUsage> findUsagesByCouponId(String couponId) {
-        return usageJpa.findByCouponIdOrderByUsedAtDesc(couponId).stream()
-                .map(mapper::toUsageDomain)
-                .toList();
+        return usageJpa.findByCouponIdOrderByUsedAtDesc(couponId).stream().map(mapper::toUsageDomain).toList();
     }
 }

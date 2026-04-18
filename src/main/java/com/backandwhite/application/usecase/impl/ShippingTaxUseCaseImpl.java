@@ -1,26 +1,25 @@
 package com.backandwhite.application.usecase.impl;
 
-import com.backandwhite.common.domain.model.PageResult;
+import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
+
 import com.backandwhite.application.usecase.ShippingTaxUseCase;
+import com.backandwhite.common.domain.model.PageResult;
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.ShippingCarrier;
 import com.backandwhite.domain.model.ShippingRule;
 import com.backandwhite.domain.model.TaxRule;
 import com.backandwhite.domain.repository.ShippingCarrierRepository;
 import com.backandwhite.domain.repository.ShippingRuleRepository;
 import com.backandwhite.domain.repository.TaxRuleRepository;
-import com.backandwhite.common.domain.valueobject.Money;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-
-import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
 
 @Log4j2
 @Service
@@ -41,8 +40,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public ShippingCarrier updateCarrier(String id, ShippingCarrier carrier) {
-        carrierRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingCarrier", id));
+        carrierRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingCarrier", id));
         carrier.setId(id);
         return carrierRepository.update(carrier);
     }
@@ -65,8 +63,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public void deleteCarrier(String id) {
-        carrierRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingCarrier", id));
+        carrierRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingCarrier", id));
         carrierRepository.delete(id);
     }
 
@@ -80,8 +77,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public ShippingRule updateRule(String id, ShippingRule rule) {
-        ruleRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingRule", id));
+        ruleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingRule", id));
         rule.setId(id);
         return ruleRepository.update(rule);
     }
@@ -89,8 +85,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional(readOnly = true)
     public ShippingRule findRuleById(String id) {
-        return ruleRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingRule", id));
+        return ruleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingRule", id));
     }
 
     @Override
@@ -105,14 +100,12 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Transactional(readOnly = true)
     public List<ShippingRule> findShippingOptions(String country, BigDecimal weight, Money subtotal) {
         List<String> zones = resolveZones(country);
-        return zones.stream()
-                .flatMap(zone -> ruleRepository.findOptions(zone, weight, subtotal).stream())
-                .toList();
+        return zones.stream().flatMap(zone -> ruleRepository.findOptions(zone, weight, subtotal).stream()).toList();
     }
 
     /**
-     * Resolve country code to zone identifier used in shipping_rules.zone.
-     * Zones now store the ISO 3166-1 alpha-2 country code directly.
+     * Resolve country code to zone identifier used in shipping_rules.zone. Zones
+     * now store the ISO 3166-1 alpha-2 country code directly.
      */
     private List<String> resolveZones(String countryCode) {
         if (countryCode == null || countryCode.isBlank())
@@ -123,8 +116,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public void deleteRule(String id) {
-        ruleRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingRule", id));
+        ruleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingRule", id));
         ruleRepository.delete(id);
     }
 
@@ -138,8 +130,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public TaxRule updateTaxRule(String id, TaxRule rule) {
-        taxRuleRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("TaxRule", id));
+        taxRuleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("TaxRule", id));
         rule.setId(id);
         return taxRuleRepository.update(rule);
     }
@@ -147,8 +138,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional(readOnly = true)
     public TaxRule findTaxRuleById(String id) {
-        return taxRuleRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("TaxRule", id));
+        return taxRuleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("TaxRule", id));
     }
 
     @Override
@@ -178,9 +168,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
         }
 
         // Pick the rule with the highest rate
-        TaxRule bestRule = rules.stream()
-                .max(java.util.Comparator.comparing(TaxRule::getRate))
-                .orElse(null);
+        TaxRule bestRule = rules.stream().max(java.util.Comparator.comparing(TaxRule::getRate)).orElse(null);
 
         if (bestRule == null) {
             return subtotal.multiply(DEFAULT_TAX_RATE);
@@ -199,8 +187,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public void deleteTaxRule(String id) {
-        taxRuleRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("TaxRule", id));
+        taxRuleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("TaxRule", id));
         taxRuleRepository.delete(id);
     }
 }

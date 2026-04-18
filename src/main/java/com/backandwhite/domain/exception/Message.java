@@ -8,26 +8,39 @@ import lombok.extern.log4j.Log4j2;
 @Getter
 public enum Message {
 
-    INVALID_STATUS_TRANSITION("OR001", "Cannot transition order from %s to %s"),
-    CART_NOT_FOUND("OR002", "No active cart found for this user/session"),
-    CART_EMPTY("OR003", "Cart is empty — cannot create order"),
-    COUPON_EXPIRED("OR004", "Coupon has expired"),
-    COUPON_EXHAUSTED("OR005", "Coupon has reached its maximum usage limit"),
-    COUPON_MIN_ORDER("OR006", "Order subtotal does not meet minimum amount of %s"),
-    COUPON_USER_LIMIT("OR007", "You have already used this coupon the maximum number of times"),
-    COUPON_INACTIVE("OR008", "Coupon is not active"),
-    COUPON_NOT_YET_VALID("OR009", "Coupon is not yet valid"),
-    RETURN_WINDOW_EXPIRED("OR010", "Return window of %d days has expired"),
-    RETURN_ORDER_NOT_DELIVERED("OR011", "Can only request returns for delivered orders"),
-    MAX_ADDRESSES_REACHED("OR012", "Maximum number of addresses reached"),
-    INSUFFICIENT_STOCK("OR013", "Insufficient stock for '%s': requested %d but only %d available"),
-    PRICE_VERIFICATION_FAILED("OR014", "Unable to verify product prices — catalog service unavailable"),
-    COUPON_SCOPE_MISMATCH("OR015", "Coupon does not apply to any products in your cart"),
-    CJ_TOKEN_ERROR("OR016", "Failed to obtain access token from CJ Dropshipping"),
-    CJ_DATA_ERROR("OR017", "Failed to fetch data from CJ Dropshipping: %s"),
-    CJ_RATE_LIMIT("OR018", "Too many requests to CJ Dropshipping. Please try again later."),
-    CJ_ORDER_SUBMIT_FAILED("OR019", "Failed to submit order %s to CJ Dropshipping: %s"),
-    CJ_ORDER_NOT_FOUND("OR020", "CJ order record not found for orderId=%s");
+    INVALID_STATUS_TRANSITION("OR001", "Cannot transition order from %s to %s"), CART_NOT_FOUND("OR002",
+            "No active cart found for this user/session"), CART_EMPTY("OR003",
+                    "Cart is empty — cannot create order"), COUPON_EXPIRED("OR004",
+                            "Coupon has expired"), COUPON_EXHAUSTED("OR005",
+                                    "Coupon has reached its maximum usage limit"), COUPON_MIN_ORDER("OR006",
+                                            "Order subtotal does not meet minimum amount of %s"), COUPON_USER_LIMIT(
+                                                    "OR007",
+                                                    "You have already used this coupon the maximum number of times"), COUPON_INACTIVE(
+                                                            "OR008",
+                                                            "Coupon is not active"), COUPON_NOT_YET_VALID("OR009",
+                                                                    "Coupon is not yet valid"), RETURN_WINDOW_EXPIRED(
+                                                                            "OR010",
+                                                                            "Return window of %d days has expired"), RETURN_ORDER_NOT_DELIVERED(
+                                                                                    "OR011",
+                                                                                    "Can only request returns for delivered orders"), MAX_ADDRESSES_REACHED(
+                                                                                            "OR012",
+                                                                                            "Maximum number of addresses reached"), INSUFFICIENT_STOCK(
+                                                                                                    "OR013",
+                                                                                                    "Insufficient stock for '%s': requested %d but only %d available"), PRICE_VERIFICATION_FAILED(
+                                                                                                            "OR014",
+                                                                                                            "Unable to verify product prices — catalog service unavailable"), COUPON_SCOPE_MISMATCH(
+                                                                                                                    "OR015",
+                                                                                                                    "Coupon does not apply to any products in your cart"), CJ_TOKEN_ERROR(
+                                                                                                                            "OR016",
+                                                                                                                            "Failed to obtain access token from CJ Dropshipping"), CJ_DATA_ERROR(
+                                                                                                                                    "OR017",
+                                                                                                                                    "Failed to fetch data from CJ Dropshipping: %s"), CJ_RATE_LIMIT(
+                                                                                                                                            "OR018",
+                                                                                                                                            "Too many requests to CJ Dropshipping. Please try again later."), CJ_ORDER_SUBMIT_FAILED(
+                                                                                                                                                    "OR019",
+                                                                                                                                                    "Failed to submit order %s to CJ Dropshipping: %s"), CJ_ORDER_NOT_FOUND(
+                                                                                                                                                            "OR020",
+                                                                                                                                                            "CJ order record not found for orderId=%s");
 
     private final String code;
     private final String detail;

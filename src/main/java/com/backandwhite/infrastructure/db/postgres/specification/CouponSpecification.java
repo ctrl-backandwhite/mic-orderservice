@@ -2,9 +2,8 @@ package com.backandwhite.infrastructure.db.postgres.specification;
 
 import com.backandwhite.infrastructure.db.postgres.entity.CouponEntity;
 import jakarta.persistence.criteria.Predicate;
-import org.springframework.data.jpa.domain.Specification;
-
 import java.util.Map;
+import org.springframework.data.jpa.domain.Specification;
 
 public class CouponSpecification {
 

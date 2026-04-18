@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface ReturnRequestJpaRepository
-        extends JpaRepository<ReturnRequestEntity, String>, JpaSpecificationExecutor<ReturnRequestEntity> {
+        extends
+            JpaRepository<ReturnRequestEntity, String>,
+            JpaSpecificationExecutor<ReturnRequestEntity> {
     Page<ReturnRequestEntity> findByUserId(String userId, Pageable pageable);
 }

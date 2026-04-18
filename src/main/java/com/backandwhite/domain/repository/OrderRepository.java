@@ -3,11 +3,10 @@ package com.backandwhite.domain.repository;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderStats;
 import com.backandwhite.domain.model.OrderStatusHistory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface OrderRepository {
     Order save(Order order);

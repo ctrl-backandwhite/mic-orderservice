@@ -1,14 +1,13 @@
 package com.backandwhite.domain.model;
 
 import com.backandwhite.domain.valueobject.CjOrderStatus;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.Map;
 
 @Data
 @Builder

@@ -1,11 +1,10 @@
 package com.backandwhite.application.port.out;
 
-import com.backandwhite.domain.model.CjOrder;
-import com.backandwhite.domain.model.CjFulfillmentResult;
 import com.backandwhite.domain.model.CjFreightOption;
+import com.backandwhite.domain.model.CjFulfillmentResult;
+import com.backandwhite.domain.model.CjOrder;
 import com.backandwhite.domain.model.CjTrackInfo;
 import com.backandwhite.domain.model.Order;
-
 import java.util.List;
 
 public interface CjShoppingPort {
@@ -50,8 +49,7 @@ public interface CjShoppingPort {
      * Calculates freight options from CN to the given destination country for the
      * given variants.
      */
-    List<CjFreightOption> calculateFreight(String toCountryCode,
-            List<CjFreightOption.ProductItem> products);
+    List<CjFreightOption> calculateFreight(String toCountryCode, List<CjFreightOption.ProductItem> products);
 
     /** Fetches tracking details for the given tracking number. */
     CjTrackInfo getTrackInfo(String trackNumber);

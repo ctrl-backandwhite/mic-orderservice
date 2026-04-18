@@ -31,57 +31,50 @@ public class OrderEventConsumerService {
     @KafkaListener(topics = AppConstants.KAFKA_TOPIC_PAYMENT_CONFIRMED, groupId = AppConstants.KAFKA_GROUP_ORDER, containerFactory = "avroKafkaListenerContainerFactory")
     public void onPaymentConfirmed(PaymentConfirmedEvent event) {
         String orderId = str(event.getOrderId());
-        log.info("::> Received payment.confirmed: orderId={}, paymentId={}, amount={}",
-                orderId, str(event.getPaymentId()), str(event.getAmount()));
+        log.info("::> Received payment.confirmed: orderId={}, paymentId={}, amount={}", orderId,
+                str(event.getPaymentId()), str(event.getAmount()));
         try {
             orderUseCase.updateStatus(orderId, OrderStatus.CONFIRMED, "SYSTEM", "Payment confirmed");
             // Submit to CJ Dropshipping after confirmation
             try {
                 cjOrderFulfillmentUseCase.submitOrderToCj(orderId);
             } catch (Exception cjEx) {
-                log.error("::> CJ submission failed for order={}: {} (will retry via scheduler)",
-                        orderId, cjEx.getMessage());
+                log.error("::> CJ submission failed for order={}: {} (will retry via scheduler)", orderId,
+                        cjEx.getMessage());
             }
         } catch (Exception e) {
-            log.error("::> Failed processing payment.confirmed for order={}: {}",
-                    orderId, e.getMessage(), e);
+            log.error("::> Failed processing payment.confirmed for order={}: {}", orderId, e.getMessage(), e);
         }
     }
 
     @KafkaListener(topics = AppConstants.KAFKA_TOPIC_PAYMENT_FAILED, groupId = AppConstants.KAFKA_GROUP_ORDER, containerFactory = "avroKafkaListenerContainerFactory")
     public void onPaymentFailed(PaymentFailedEvent event) {
         String orderId = str(event.getOrderId());
-        log.info("::> Received payment.failed: orderId={}, reason={}",
-                orderId, str(event.getReason()));
+        log.info("::> Received payment.failed: orderId={}, reason={}", orderId, str(event.getReason()));
         try {
-            orderUseCase.cancel(orderId, str(event.getUserId()),
-                    "Payment failed: " + str(event.getReason()));
+            orderUseCase.cancel(orderId, str(event.getUserId()), "Payment failed: " + str(event.getReason()));
             // Trigger Saga compensation: release stock + notify customer
-            orderCompensationService.compensate(
-                    orderId,
-                    str(event.getUserId()),
-                    str(event.getEmail()),
-                    orderId, // orderReference falls back to orderId
-                    str(event.getAmount()),
-                    "USD",
-                    str(event.getReason()));
+            orderCompensationService.compensate(orderId, str(event.getUserId()), str(event.getEmail()), orderId, // orderReference
+                                                                                                                 // falls
+                                                                                                                 // back
+                                                                                                                 // to
+                                                                                                                 // orderId
+                    str(event.getAmount()), "USD", str(event.getReason()));
         } catch (Exception e) {
-            log.error("::> Failed processing payment.failed for order={}: {}",
-                    orderId, e.getMessage(), e);
+            log.error("::> Failed processing payment.failed for order={}: {}", orderId, e.getMessage(), e);
         }
     }
 
     @KafkaListener(topics = AppConstants.KAFKA_TOPIC_SHIPPING_ORDER_SHIPPED, groupId = AppConstants.KAFKA_GROUP_ORDER, containerFactory = "avroKafkaListenerContainerFactory")
     public void onShippingOrderShipped(ShippingOrderShippedEvent event) {
         String orderId = str(event.getOrderId());
-        log.info("::> Received shipping.order.shipped: orderId={}, tracking={}",
-                orderId, str(event.getTrackingNumber()));
+        log.info("::> Received shipping.order.shipped: orderId={}, tracking={}", orderId,
+                str(event.getTrackingNumber()));
         try {
             orderUseCase.updateStatus(orderId, OrderStatus.SHIPPED, "SYSTEM",
                     "Shipped via " + str(event.getCarrier()) + " tracking: " + str(event.getTrackingNumber()));
         } catch (Exception e) {
-            log.error("::> Failed processing shipping.order.shipped for order={}: {}",
-                    orderId, e.getMessage(), e);
+            log.error("::> Failed processing shipping.order.shipped for order={}: {}", orderId, e.getMessage(), e);
         }
     }
 
@@ -93,8 +86,7 @@ public class OrderEventConsumerService {
             orderUseCase.updateStatus(orderId, OrderStatus.DELIVERED, "SYSTEM",
                     "Delivered at " + str(event.getDeliveredAt()));
         } catch (Exception e) {
-            log.error("::> Failed processing shipping.order.delivered for order={}: {}",
-                    orderId, e.getMessage(), e);
+            log.error("::> Failed processing shipping.order.delivered for order={}: {}", orderId, e.getMessage(), e);
         }
     }
 

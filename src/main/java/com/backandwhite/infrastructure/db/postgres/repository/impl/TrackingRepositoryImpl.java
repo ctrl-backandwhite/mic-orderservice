@@ -4,11 +4,10 @@ import com.backandwhite.domain.model.TrackingEvent;
 import com.backandwhite.domain.repository.TrackingRepository;
 import com.backandwhite.infrastructure.db.postgres.mapper.TrackingInfraMapper;
 import com.backandwhite.infrastructure.db.postgres.repository.TrackingEventJpaRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor

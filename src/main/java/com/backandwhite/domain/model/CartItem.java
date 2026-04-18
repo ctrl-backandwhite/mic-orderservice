@@ -1,9 +1,8 @@
 package com.backandwhite.domain.model;
 
 import com.backandwhite.common.domain.valueobject.Money;
-import lombok.*;
-
 import java.util.Map;
+import lombok.*;
 
 @Data
 @With

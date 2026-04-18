@@ -1,22 +1,20 @@
 package com.backandwhite.infrastructure.client;
 
+import com.backandwhite.application.port.out.CmsPort;
+import com.backandwhite.common.domain.valueobject.Money;
+import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import com.backandwhite.application.port.out.CmsPort;
-import com.backandwhite.common.domain.valueobject.Money;
-
-import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
 /**
- * HTTP client for service-to-service calls to mic-cmsservice.
- * Used to fetch active campaigns for server-side discount validation.
+ * HTTP client for service-to-service calls to mic-cmsservice. Used to fetch
+ * active campaigns for server-side discount validation.
  */
 @Log4j2
 @Component
@@ -24,8 +22,7 @@ public class CmsClient implements CmsPort {
 
     private final RestClient restClient;
 
-    public CmsClient(
-            @Value("${services.cmsservice.url:http://localhost:6006}") String baseUrl) {
+    public CmsClient(@Value("${services.cmsservice.url:http://localhost:6006}") String baseUrl) {
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
 
@@ -38,9 +35,7 @@ public class CmsClient implements CmsPort {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getActiveCampaigns() {
         try {
-            List<Map<String, Object>> campaigns = restClient.get()
-                    .uri("/api/v1/campaigns/active")
-                    .retrieve()
+            List<Map<String, Object>> campaigns = restClient.get().uri("/api/v1/campaigns/active").retrieve()
                     .body(new ParameterizedTypeReference<>() {
                     });
             return campaigns != null ? campaigns : Collections.emptyList();
@@ -51,26 +46,24 @@ public class CmsClient implements CmsPort {
     }
 
     /**
-     * Calculates the campaign discount for a given product.
-     * Checks both appliesToProducts and appliesToCategories.
-     * Returns the BEST (highest) discount if multiple campaigns match.
+     * Calculates the campaign discount for a given product. Checks both
+     * appliesToProducts and appliesToCategories. Returns the BEST (highest)
+     * discount if multiple campaigns match.
      *
-     * @param campaigns  list of active campaign data
-     * @param productId  the product ID to check
-     * @param categoryId the product's category ID
-     * @param basePrice  the product's base sell price
+     * @param campaigns
+     *            list of active campaign data
+     * @param productId
+     *            the product ID to check
+     * @param categoryId
+     *            the product's category ID
+     * @param basePrice
+     *            the product's base sell price
      * @return the discount result including amount and campaign ID
      */
     @Override
     @SuppressWarnings("unchecked")
-    public CampaignDiscountResult calculateBestCampaignDiscount(
-            List<Map<String, Object>> campaigns,
-            String productId,
-            String categoryId,
-            Money basePrice,
-            Money costPrice,
-            int quantity,
-            Money orderSubtotal) {
+    public CampaignDiscountResult calculateBestCampaignDiscount(List<Map<String, Object>> campaigns, String productId,
+            String categoryId, Money basePrice, Money costPrice, int quantity, Money orderSubtotal) {
 
         Money bestDiscount = Money.zero();
         String bestCampaignId = null;
@@ -135,10 +128,9 @@ public class CmsClient implements CmsPort {
                     if (quantity >= groupSize) {
                         int freeCount = (quantity / groupSize);
                         // Per-unit discount = (freeCount × margin) / quantity
-                        BigDecimal totalOff = margin.getAmount()
-                                .multiply(BigDecimal.valueOf(freeCount));
-                        BigDecimal perUnit = totalOff.divide(
-                                BigDecimal.valueOf(quantity), 4, java.math.RoundingMode.HALF_UP);
+                        BigDecimal totalOff = margin.getAmount().multiply(BigDecimal.valueOf(freeCount));
+                        BigDecimal perUnit = totalOff.divide(BigDecimal.valueOf(quantity), 4,
+                                java.math.RoundingMode.HALF_UP);
                         yield Money.of(perUnit).min(margin);
                     }
                     yield Money.zero();
@@ -152,10 +144,9 @@ public class CmsClient implements CmsPort {
                     int groupSize = buyQty + getQty;
                     if (groupSize > 0 && getQty > 0 && quantity >= groupSize) {
                         int freeCount = (quantity / groupSize) * getQty;
-                        BigDecimal totalOff = margin.getAmount()
-                                .multiply(BigDecimal.valueOf(freeCount));
-                        BigDecimal perUnit = totalOff.divide(
-                                BigDecimal.valueOf(quantity), 4, java.math.RoundingMode.HALF_UP);
+                        BigDecimal totalOff = margin.getAmount().multiply(BigDecimal.valueOf(freeCount));
+                        BigDecimal perUnit = totalOff.divide(BigDecimal.valueOf(quantity), 4,
+                                java.math.RoundingMode.HALF_UP);
                         yield Money.of(perUnit).min(margin);
                     }
                     yield Money.zero();
@@ -195,9 +186,7 @@ public class CmsClient implements CmsPort {
         }
         try {
             Map<String, Object> response = restClient.get()
-                    .uri("/api/v1/currency-rates/{code}", currencyCode.toUpperCase())
-                    .retrieve()
-                    .body(Map.class);
+                    .uri("/api/v1/currency-rates/{code}", currencyCode.toUpperCase()).retrieve().body(Map.class);
             if (response != null && response.get("rate") != null) {
                 return new BigDecimal(response.get("rate").toString());
             }
@@ -209,11 +198,8 @@ public class CmsClient implements CmsPort {
 
     @Override
     @SuppressWarnings("unchecked")
-    public boolean isFreeShippingCampaignActive(
-            List<Map<String, Object>> campaigns,
-            List<String> productIds,
-            List<String> categoryIds,
-            Money orderSubtotal) {
+    public boolean isFreeShippingCampaignActive(List<Map<String, Object>> campaigns, List<String> productIds,
+            List<String> categoryIds, Money orderSubtotal) {
 
         for (Map<String, Object> campaign : campaigns) {
             String type = campaign.get("type") != null ? campaign.get("type").toString() : "";

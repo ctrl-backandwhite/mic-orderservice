@@ -1,0 +1,16 @@
+spring:
+    security:
+        oauth2:
+            resourceserver:
+                jwt:
+                    issuer-uri: http://localhost:9000
+
+    kafka:
+        enabled: false
+        bootstrap-servers: ${spring.kafka.bootstrap-servers:localhost:9092}
+
+test:
+    postgres:
+        username: testuser
+        password: testpass
+        database: order_test_db

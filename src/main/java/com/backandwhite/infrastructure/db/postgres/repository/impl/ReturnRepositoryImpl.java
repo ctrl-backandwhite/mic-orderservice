@@ -5,14 +5,13 @@ import com.backandwhite.domain.repository.ReturnRepository;
 import com.backandwhite.infrastructure.db.postgres.mapper.ReturnInfraMapper;
 import com.backandwhite.infrastructure.db.postgres.repository.ReturnRequestJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.specification.ReturnRequestSpecification;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -39,8 +38,7 @@ public class ReturnRepositoryImpl implements ReturnRepository {
 
     @Override
     public Page<ReturnRequest> findAll(Map<String, Object> filters, Pageable pageable) {
-        return jpa.findAll(ReturnRequestSpecification.withFilters(filters), pageable)
-                .map(mapper::toDomain);
+        return jpa.findAll(ReturnRequestSpecification.withFilters(filters), pageable).map(mapper::toDomain);
     }
 
     @Override

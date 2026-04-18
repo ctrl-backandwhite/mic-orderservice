@@ -1,13 +1,12 @@
 package com.backandwhite.domain.model;
 
-import com.backandwhite.domain.valueobject.InvoiceStatus;
-import lombok.*;
-
 import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.domain.valueobject.InvoiceStatus;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import lombok.*;
 
 @Data
 @With

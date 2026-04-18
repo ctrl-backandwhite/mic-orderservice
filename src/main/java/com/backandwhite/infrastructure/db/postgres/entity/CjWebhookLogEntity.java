@@ -4,14 +4,13 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import lombok.*;
 
-import java.time.Instant;
-
 /**
- * Stores processed CJ webhook message IDs for idempotent processing.
- * The {@code message_id} supplied by CJ is the primary key — attempting to
- * insert a duplicate will fail fast, preventing double-processing.
+ * Stores processed CJ webhook message IDs for idempotent processing. The
+ * {@code message_id} supplied by CJ is the primary key — attempting to insert a
+ * duplicate will fail fast, preventing double-processing.
  */
 @Getter
 @Setter

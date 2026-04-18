@@ -3,10 +3,6 @@ package com.backandwhite.infrastructure.client.cj.auth;
 import com.backandwhite.infrastructure.client.cj.dto.CjAccessTokenDataDto;
 import com.backandwhite.infrastructure.db.postgres.entity.CjTokenEntity;
 import com.backandwhite.infrastructure.db.postgres.repository.CjTokenJpaRepository;
-import lombok.extern.log4j.Log4j2;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -14,12 +10,14 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
 /**
- * Manages the CJ Shopping API token lifecycle with DB persistence.
- * On startup, loads the last token from DB (survives restarts).
- * Proactively refreshes the token 30 minutes before expiry.
- * Hourly scheduled refresh via @Scheduled.
+ * Manages the CJ Shopping API token lifecycle with DB persistence. On startup,
+ * loads the last token from DB (survives restarts). Proactively refreshes the
+ * token 30 minutes before expiry. Hourly scheduled refresh via @Scheduled.
  */
 @Log4j2
 @Component
@@ -41,8 +39,7 @@ public class CjShoppingTokenManager {
     private Instant lastTokenRequestTime;
     private boolean loadedFromDb = false;
 
-    public CjShoppingTokenManager(CjShoppingAuthClient cjShoppingAuthClient,
-            CjTokenJpaRepository tokenRepository) {
+    public CjShoppingTokenManager(CjShoppingAuthClient cjShoppingAuthClient, CjTokenJpaRepository tokenRepository) {
         this.cjShoppingAuthClient = cjShoppingAuthClient;
         this.tokenRepository = tokenRepository;
     }
@@ -146,14 +143,9 @@ public class CjShoppingTokenManager {
 
     private void saveToDatabase() {
         try {
-            CjTokenEntity entity = CjTokenEntity.builder()
-                    .id(SINGLETON_ID)
-                    .accessToken(cachedAccessToken)
-                    .refreshToken(cachedRefreshToken)
-                    .accessTokenExpiry(accessTokenExpiry)
-                    .refreshTokenExpiry(refreshTokenExpiry)
-                    .lastTokenRequestTime(lastTokenRequestTime)
-                    .build();
+            CjTokenEntity entity = CjTokenEntity.builder().id(SINGLETON_ID).accessToken(cachedAccessToken)
+                    .refreshToken(cachedRefreshToken).accessTokenExpiry(accessTokenExpiry)
+                    .refreshTokenExpiry(refreshTokenExpiry).lastTokenRequestTime(lastTokenRequestTime).build();
             tokenRepository.save(entity);
             log.debug("CJ Shopping token persisted to DB");
         } catch (Exception e) {
@@ -195,16 +187,12 @@ public class CjShoppingTokenManager {
     }
 
     private void logTokenStatus() {
-        long min = accessTokenExpiry != null
-                ? ChronoUnit.MINUTES.between(Instant.now(), accessTokenExpiry)
-                : -1;
-        long refMin = refreshTokenExpiry != null
-                ? ChronoUnit.MINUTES.between(Instant.now(), refreshTokenExpiry)
-                : -1;
-        log.info("  AccessToken  : {}...{} | expires: {} ({} min left)",
-                maskStart(), maskEnd(), accessTokenExpiry, min);
-        log.info("  RefreshToken : {}...{} | expires: {} ({} min left)",
-                maskStart(cachedRefreshToken), maskEnd(cachedRefreshToken), refreshTokenExpiry, refMin);
+        long min = accessTokenExpiry != null ? ChronoUnit.MINUTES.between(Instant.now(), accessTokenExpiry) : -1;
+        long refMin = refreshTokenExpiry != null ? ChronoUnit.MINUTES.between(Instant.now(), refreshTokenExpiry) : -1;
+        log.info("  AccessToken  : {}...{} | expires: {} ({} min left)", maskStart(), maskEnd(), accessTokenExpiry,
+                min);
+        log.info("  RefreshToken : {}...{} | expires: {} ({} min left)", maskStart(cachedRefreshToken),
+                maskEnd(cachedRefreshToken), refreshTokenExpiry, refMin);
     }
 
     private boolean isExpired() {
@@ -212,8 +200,8 @@ public class CjShoppingTokenManager {
     }
 
     private boolean isAboutToExpire() {
-        return accessTokenExpiry != null &&
-                Instant.now().plus(PROACTIVE_REFRESH_MINUTES, ChronoUnit.MINUTES).isAfter(accessTokenExpiry);
+        return accessTokenExpiry != null
+                && Instant.now().plus(PROACTIVE_REFRESH_MINUTES, ChronoUnit.MINUTES).isAfter(accessTokenExpiry);
     }
 
     private boolean isRefreshTokenExpired() {

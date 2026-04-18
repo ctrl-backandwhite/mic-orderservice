@@ -3,12 +3,11 @@ package com.backandwhite.domain.model;
 import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.valueobject.OrderSagaStatus;
 import com.backandwhite.domain.valueobject.OrderStatus;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import lombok.*;
 
 @Data
 @With

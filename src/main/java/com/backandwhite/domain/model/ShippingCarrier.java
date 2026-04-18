@@ -1,8 +1,7 @@
 package com.backandwhite.domain.model;
 
-import lombok.*;
-
 import java.time.Instant;
+import lombok.*;
 
 @Data
 @With

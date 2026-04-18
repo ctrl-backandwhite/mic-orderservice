@@ -1,11 +1,10 @@
 package com.backandwhite.application.usecase;
 
+import com.backandwhite.common.domain.model.PageResult;
+import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.ShippingCarrier;
 import com.backandwhite.domain.model.ShippingRule;
 import com.backandwhite.domain.model.TaxRule;
-import com.backandwhite.common.domain.model.PageResult;
-import com.backandwhite.common.domain.valueobject.Money;
-
 import java.math.BigDecimal;
 import java.util.List;
 

@@ -6,13 +6,12 @@ import com.backandwhite.domain.model.CjFulfillmentResult;
 import com.backandwhite.domain.model.CjOrder;
 import com.backandwhite.domain.repository.CjOrderRepository;
 import com.backandwhite.domain.valueobject.CjOrderStatus;
+import java.math.BigDecimal;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
-import java.time.Instant;
 
 /**
  * Orchestrates the 4-step CJ fulfillment pipeline:
@@ -43,9 +42,9 @@ public class CjFulfillmentPipelineService {
     private BigDecimal minBalanceAlert;
 
     /**
-     * Runs the full pipeline for a given CJ order.
-     * Failures are recorded to the DB (fulfillmentStep + fulfillmentError)
-     * but never propagated upward — the scheduler will retry.
+     * Runs the full pipeline for a given CJ order. Failures are recorded to the DB
+     * (fulfillmentStep + fulfillmentError) but never propagated upward — the
+     * scheduler will retry.
      */
     public void processFulfillment(CjOrder cjOrder) {
         String orderId = cjOrder.getOrderId();
@@ -98,8 +97,8 @@ public class CjFulfillmentPipelineService {
         // ── Balance check ──────────────────────────────────────────────────
         BigDecimal balance = cjShoppingPort.getBalanceAmount();
         if (balance != null && actualPayment != null && balance.compareTo(actualPayment) < 0) {
-            log.warn("::> [Pipeline] Insufficient CJ balance ({}) for payment ({}). orderId={}",
-                    balance, actualPayment, orderId);
+            log.warn("::> [Pipeline] Insufficient CJ balance ({}) for payment ({}). orderId={}", balance, actualPayment,
+                    orderId);
             cjOrder.setCjOrderStatus(CjOrderStatus.AWAITING_FUNDS);
             cjOrder.setFulfillmentStep(STEP_PAY);
             cjOrder.setFulfillmentError("Insufficient balance: " + balance + " < " + actualPayment);
@@ -127,8 +126,8 @@ public class CjFulfillmentPipelineService {
     }
 
     /**
-     * Resumes the pipeline from the last recorded step.
-     * Called by the retry scheduler for PIPELINE_FAILED / AWAITING_FUNDS orders.
+     * Resumes the pipeline from the last recorded step. Called by the retry
+     * scheduler for PIPELINE_FAILED / AWAITING_FUNDS orders.
      */
     public void resumeFulfillment(CjOrder cjOrder) {
         String step = cjOrder.getFulfillmentStep();
@@ -225,8 +224,7 @@ public class CjFulfillmentPipelineService {
 
     private void publishAwaitingFunds(String orderId, BigDecimal needed, BigDecimal available) {
         try {
-            orderEventPort.publishCjOrderAwaitingFunds(orderId,
-                    needed != null ? needed.toPlainString() : "0",
+            orderEventPort.publishCjOrderAwaitingFunds(orderId, needed != null ? needed.toPlainString() : "0",
                     available != null ? available.toPlainString() : "0");
         } catch (Exception e) {
             log.warn("::> Could not publish cj.order.awaiting_funds event for orderId={}: {}", orderId, e.getMessage());

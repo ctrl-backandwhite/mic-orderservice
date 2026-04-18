@@ -6,9 +6,9 @@ import com.backandwhite.api.dto.in.UpdateReturnStatusDtoIn;
 import com.backandwhite.api.dto.out.ReturnRequestDtoOut;
 import com.backandwhite.api.mapper.ReturnApiMapper;
 import com.backandwhite.api.util.PageableUtils;
-import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.application.usecase.ReturnUseCase;
 import com.backandwhite.common.constants.AppConstants;
+import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.common.security.annotation.NxAdmin;
 import com.backandwhite.common.security.annotation.NxUser;
 import com.backandwhite.domain.model.ReturnRequest;
@@ -16,12 +16,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -31,16 +31,17 @@ public class ReturnController {
     private final ReturnUseCase returnUseCase;
     private final ReturnApiMapper returnApiMapper;
 
+    @NxUser
     @PostMapping
     @Operation(summary = "Solicitardevolución", description = "Creaunasolicituddedevoluciónparaunpedidoentregado")
     public ResponseEntity<ReturnRequestDtoOut> createReturn(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
-            @Valid @RequestBody ReturnRequestDtoIn dto) {
+            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth, @Valid @RequestBody ReturnRequestDtoIn dto) {
         ReturnRequest request = returnApiMapper.toDomain(dto);
         ReturnRequest created = returnUseCase.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(returnApiMapper.toDto(created));
     }
 
+    @NxUser
     @GetMapping("/me")
     @Operation(summary = "Misdevoluciones", description = "Listalasdevolucionesdelusuarioautenticado")
     public ResponseEntity<PaginationDtoOut<ReturnRequestDtoOut>> getMyReturns(
@@ -56,6 +57,7 @@ public class ReturnController {
 
     // ──Admin ────────────────────────────────────────────────────────────
 
+    @NxAdmin
     @GetMapping
     @Operation(summary = "[Admin]Listardevoluciones")
     public ResponseEntity<PaginationDtoOut<ReturnRequestDtoOut>> findAll(
@@ -75,15 +77,16 @@ public class ReturnController {
         return ResponseEntity.ok(PageableUtils.toResponse(result, returnApiMapper::toDto));
     }
 
+    @NxAdmin
     @GetMapping("/{id}")
     @Operation(summary = "[Admin]Detallededevolución")
-    public ResponseEntity<ReturnRequestDtoOut> findById(
-            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+    public ResponseEntity<ReturnRequestDtoOut> findById(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdeladevolución") @PathVariable String id) {
         ReturnRequest request = returnUseCase.findById(id);
         return ResponseEntity.ok(returnApiMapper.toDto(request));
     }
 
+    @NxAdmin
     @PatchMapping("/{id}/status")
     @Operation(summary = "[Admin]Cambiarestadodedevolución")
     public ResponseEntity<ReturnRequestDtoOut> updateStatus(

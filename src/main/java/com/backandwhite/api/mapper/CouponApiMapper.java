@@ -3,10 +3,9 @@ package com.backandwhite.api.mapper;
 import com.backandwhite.api.dto.in.CouponDtoIn;
 import com.backandwhite.api.dto.out.CouponDtoOut;
 import com.backandwhite.domain.model.Coupon;
+import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.util.List;
 
 @Mapper(componentModel = "spring", uses = MoneyMapperHelper.class)
 public interface CouponApiMapper {

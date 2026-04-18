@@ -1,14 +1,13 @@
 package com.backandwhite.domain.repository;
 
-import com.backandwhite.domain.model.ShippingRule;
 import com.backandwhite.common.domain.valueobject.Money;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
+import com.backandwhite.domain.model.ShippingRule;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface ShippingRuleRepository {
     ShippingRule save(ShippingRule rule);
