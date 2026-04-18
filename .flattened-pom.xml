@@ -27,10 +27,21 @@
     <sonar.login>${env.SONAR_TOKEN}</sonar.login>
     <sonar.organization>ctrl-backandwhite</sonar.organization>
     <sonar.sources>src/main/java</sonar.sources>
+    <thymeleaf.version>3.1.4.RELEASE</thymeleaf.version>
     <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
   </properties>
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.thymeleaf</groupId>
+        <artifactId>thymeleaf</artifactId>
+        <version>${thymeleaf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.thymeleaf</groupId>
+        <artifactId>thymeleaf-spring6</artifactId>
+        <version>${thymeleaf.version}</version>
+      </dependency>
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
