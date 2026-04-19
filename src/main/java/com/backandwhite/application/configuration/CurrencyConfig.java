@@ -1,5 +1,6 @@
 package com.backandwhite.application.configuration;
 
+import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.common.currency.CurrencyRateCache;
 import com.backandwhite.common.currency.CurrencyRequestFilter;
 import com.backandwhite.common.currency.PriceConversionService;
@@ -18,7 +19,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class CurrencyConfig implements WebMvcConfigurer {
 
-    @Value("${services.cmsservice.url:http://localhost:6006}")
+    @Value("${services.cms.url:http://localhost:6006}")
     private String cmsServiceUrl;
 
     @Override
@@ -31,7 +32,12 @@ public class CurrencyConfig implements WebMvcConfigurer {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(3000);
         factory.setReadTimeout(5000);
-        return new RestTemplate(factory);
+        RestTemplate rt = new RestTemplate(factory);
+        rt.getInterceptors().add((request, body, execution) -> {
+            request.getHeaders().add(AppConstants.HEADER_NX036_AUTH, "service");
+            return execution.execute(request, body);
+        });
+        return rt;
     }
 
     @Bean
