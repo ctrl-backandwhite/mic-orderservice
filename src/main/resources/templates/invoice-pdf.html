@@ -499,38 +499,40 @@
                     <tr>
                         <td class="totals-label">Subtotal</td>
                         <td class="totals-value">$<span
-                                th:text="${#numbers.formatDecimal(invoice.subtotal, 1, 2)}">0.00</span></td>
+                                th:text="${#numbers.formatDecimal(invoice.subtotal?.amount ?: 0, 1, 2)}">0.00</span></td>
                     </tr>
                     <tr>
                         <td class="totals-label">Envío</td>
-                        <td th:if="${invoice.shipping.doubleValue() == 0}" class="totals-value-green">Gratuito</td>
-                        <td th:if="${invoice.shipping.doubleValue() != 0}" class="totals-value">$<span
-                                th:text="${#numbers.formatDecimal(invoice.shipping, 1, 2)}">0.00</span></td>
+                        <td th:if="${invoice.shipping == null or invoice.shipping.amount.doubleValue() == 0}"
+                            class="totals-value-green">Gratuito</td>
+                        <td th:if="${invoice.shipping != null and invoice.shipping.amount.doubleValue() != 0}"
+                            class="totals-value">$<span
+                                th:text="${#numbers.formatDecimal(invoice.shipping.amount, 1, 2)}">0.00</span></td>
                     </tr>
                     <tr>
                         <td class="totals-label">IVA (10%)</td>
                         <td class="totals-value">$<span
-                                th:text="${#numbers.formatDecimal(invoice.tax, 1, 2)}">0.00</span></td>
+                                th:text="${#numbers.formatDecimal(invoice.tax?.amount ?: 0, 1, 2)}">0.00</span></td>
                     </tr>
-                    <tr th:if="${invoice.discountAmount != null and invoice.discountAmount.doubleValue() > 0}">
+                    <tr th:if="${invoice.discountAmount != null and invoice.discountAmount.amount.doubleValue() > 0}">
                         <td class="totals-label">Cupón de descuento</td>
                         <td class="totals-value-green">−$<span
-                                th:text="${#numbers.formatDecimal(invoice.discountAmount, 1, 2)}">0.00</span></td>
+                                th:text="${#numbers.formatDecimal(invoice.discountAmount.amount, 1, 2)}">0.00</span></td>
                     </tr>
-                    <tr th:if="${invoice.giftCardAmount != null and invoice.giftCardAmount.doubleValue() > 0}">
+                    <tr th:if="${invoice.giftCardAmount != null and invoice.giftCardAmount.amount.doubleValue() > 0}">
                         <td class="totals-label">Tarjeta de regalo</td>
                         <td class="totals-value-green">−$<span
-                                th:text="${#numbers.formatDecimal(invoice.giftCardAmount, 1, 2)}">0.00</span></td>
+                                th:text="${#numbers.formatDecimal(invoice.giftCardAmount.amount, 1, 2)}">0.00</span></td>
                     </tr>
-                    <tr th:if="${invoice.loyaltyDiscount != null and invoice.loyaltyDiscount.doubleValue() > 0}">
+                    <tr th:if="${invoice.loyaltyDiscount != null and invoice.loyaltyDiscount.amount.doubleValue() > 0}">
                         <td class="totals-label">Puntos de lealtad</td>
                         <td class="totals-value-green">−$<span
-                                th:text="${#numbers.formatDecimal(invoice.loyaltyDiscount, 1, 2)}">0.00</span></td>
+                                th:text="${#numbers.formatDecimal(invoice.loyaltyDiscount.amount, 1, 2)}">0.00</span></td>
                     </tr>
                     <tr class="grand-total-row">
                         <td class="grand-total-label">Total</td>
                         <td class="grand-total-value">$<span
-                                th:text="${#numbers.formatDecimal(invoice.total, 1, 2)}">0.00</span></td>
+                                th:text="${#numbers.formatDecimal(invoice.total?.amount ?: 0, 1, 2)}">0.00</span></td>
                     </tr>
                     <tr class="charged-row" th:if="${chargedVia != null}">
                         <td class="charged-label" th:text="'Cobrado vía ' + ${paymentMethodLabel}">Cobrado vía Tarjeta

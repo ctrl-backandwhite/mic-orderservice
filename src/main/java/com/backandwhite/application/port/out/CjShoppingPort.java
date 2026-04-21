@@ -58,4 +58,19 @@ public interface CjShoppingPort {
 
     /** Deletes/cancels a CJ order (only allowed before payment). */
     void deleteOrder(String cjOrderId);
+
+    // ── Webhook registration ────────────────────────────────────────────────
+
+    /**
+     * Reads the webhook URL currently registered on CJ side. Returns an empty
+     * string if nothing is registered.
+     */
+    String getRegisteredWebhookUrl();
+
+    /**
+     * Registers the given callback URL with CJ so push events (order, logistics,
+     * product, stock) are delivered to it. Treats {@code code=1606000} (webhook
+     * already exists) as success.
+     */
+    void registerWebhookUrl(String callbackUrl);
 }

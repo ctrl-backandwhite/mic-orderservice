@@ -31,17 +31,20 @@ public class CjOrderStatusSyncScheduler {
     @Value("${app.cj.sync-batch-size:20}")
     private int batchSize;
 
-    @Scheduled(cron = "${app.cj.status-sync-cron:0 */15 * * * *}")
+    // Fase 7 — poll every 10 minutes and re-sync any non-terminal order that
+    // hasn't been touched by a webhook in > 30 minutes. CJ drops webhooks often
+    // enough that we can't rely on them alone.
+    @Scheduled(cron = "${app.cj.status-sync-cron:0 */10 * * * *}")
     public void syncPendingOrders() {
         log.info("══════ CJ Order Status Sync ══════");
         List<CjOrder> pending = cjOrderRepository.findPendingSync(batchSize);
         log.info("Found {} CJ orders pending sync", pending.size());
 
-        Instant twoHoursAgo = Instant.now().minus(2, ChronoUnit.HOURS);
+        Instant thirtyMinAgo = Instant.now().minus(30, ChronoUnit.MINUTES);
         int skipped = 0, success = 0, failed = 0;
         for (CjOrder cjOrder : pending) {
-            // Skip orders whose status was updated recently via webhook
-            if (cjOrder.getLastWebhookAt() != null && cjOrder.getLastWebhookAt().isAfter(twoHoursAgo)) {
+            // Skip only orders whose webhook update is under 30 min old.
+            if (cjOrder.getLastWebhookAt() != null && cjOrder.getLastWebhookAt().isAfter(thirtyMinAgo)) {
                 log.debug("::> Skipping orderId={} — webhook received at {}", cjOrder.getOrderId(),
                         cjOrder.getLastWebhookAt());
                 skipped++;

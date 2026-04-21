@@ -43,6 +43,14 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Value("${app.store.url:http://localhost:9000}")
     private String storeUrl;
 
+    /**
+     * Fallback shipping cost (USD) used when no row in {@code shipping_rules}
+     * matches the destination country. Keeps the invoice line sane during local
+     * testing where the seed is minimal. Override per-environment.
+     */
+    @Value("${app.shipping.default-rate-usd:5.00}")
+    private java.math.BigDecimal defaultShippingRate;
+
     private final OrderRepository orderRepository;
     private final CartRepository cartRepository;
     private final CouponUseCase couponUseCase;
@@ -51,10 +59,12 @@ public class OrderUseCaseImpl implements OrderUseCase {
     private final CatalogPort catalogClient;
     private final CmsPort cmsClient;
     private final OrderEventPort orderEventPort;
+    private final com.backandwhite.application.service.InvoicePdfUrlSigner invoicePdfUrlSigner;
 
     public OrderUseCaseImpl(OrderRepository orderRepository, CartRepository cartRepository, CouponUseCase couponUseCase,
             ShippingTaxUseCase shippingTaxUseCase, InvoiceUseCase invoiceUseCase, CatalogPort catalogClient,
-            CmsPort cmsClient, OrderEventPort orderEventPort) {
+            CmsPort cmsClient, OrderEventPort orderEventPort,
+            com.backandwhite.application.service.InvoicePdfUrlSigner invoicePdfUrlSigner) {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
         this.couponUseCase = couponUseCase;
@@ -63,6 +73,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         this.catalogClient = catalogClient;
         this.cmsClient = cmsClient;
         this.orderEventPort = orderEventPort;
+        this.invoicePdfUrlSigner = invoicePdfUrlSigner;
     }
 
     @Override
@@ -161,12 +172,19 @@ public class OrderUseCaseImpl implements OrderUseCase {
         Money subtotal = cart.getItems().stream().map(ci -> ci.getUnitPrice().multiply(ci.getQuantity()))
                 .reduce(Money.zero(), Money::add);
 
-        // 2. Calculate shipping (using real product weight — M-03)
+        // 2. Calculate shipping (using real product weight — M-03).
+        // Fallback to a configurable flat rate when no rules match, so the
+        // invoice never shows a free shipping line by accident when the
+        // admin simply hasn't seeded shipping_rules for this country.
         String country = shippingAddress.getOrDefault("country", "").toString();
         Money shippingCost = Money.zero();
         List<ShippingRule> options = shippingTaxUseCase.findShippingOptions(country, totalWeight, subtotal);
         if (!options.isEmpty()) {
             shippingCost = options.getFirst().getRate();
+        } else if (defaultShippingRate != null && defaultShippingRate.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            log.info("::> No shipping rule for country={} — using default flat rate {} USD", country,
+                    defaultShippingRate);
+            shippingCost = Money.of(defaultShippingRate);
         }
 
         // 3. Calculate tax
@@ -284,8 +302,18 @@ public class OrderUseCaseImpl implements OrderUseCase {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", orderId));
 
-        if (order.getStatus() != OrderStatus.DRAFT) {
-            throw INVALID_STATUS_TRANSITION.toBusinessException(order.getStatus(), OrderStatus.PENDING);
+        // Idempotent confirm: if the async Kafka consumer (onPaymentConfirmed)
+        // or a previous retry already advanced the order, don't fail — just
+        // return the current snapshot so the frontend can keep moving.
+        OrderStatus current = order.getStatus();
+        if (current == OrderStatus.PENDING || current == OrderStatus.CONFIRMED || current == OrderStatus.PROCESSING
+                || current == OrderStatus.SHIPPED || current == OrderStatus.DELIVERED) {
+            log.info("::> confirmOrder idempotent — order {} already in status {}", orderId, current);
+            return order;
+        }
+
+        if (current != OrderStatus.DRAFT) {
+            throw INVALID_STATUS_TRANSITION.toBusinessException(current, OrderStatus.PENDING);
         }
 
         // Transition to PENDING
@@ -318,6 +346,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
             Map<String, Object> customerSnapshot = new LinkedHashMap<>();
             customerSnapshot.put("name", confirmed.getShippingAddress().getOrDefault("fullName", ""));
             customerSnapshot.put("phone", confirmed.getShippingAddress().getOrDefault("phone", ""));
+            customerSnapshot.put("email",
+                    confirmed.getShippingAddress().getOrDefault("email", email != null ? email : ""));
             customerSnapshot.put("address", buildAddressString(confirmed.getShippingAddress()));
 
             List<Map<String, Object>> invoiceLines = new ArrayList<>();
@@ -423,23 +453,40 @@ public class OrderUseCaseImpl implements OrderUseCase {
         orderEventPort.publishOrderStatusUpdated(updated.getId(), updated.getUserId(), null, updated.getOrderNumber(),
                 history.getFromStatus(), newStatus.name());
 
-        // When order is delivered, publish specific delivery event for loyalty
-        // processing — always send the total converted to USD
+        // When the order transitions into a loyalty-relevant state, publish the
+        // dedicated event with the total converted to USD so downstream
+        // services (notifications, loyalty) don't need FX context.
+        if (newStatus == OrderStatus.CONFIRMED) {
+            String totalUsd = toUsdPlainString(updated);
+            orderEventPort.publishOrderConfirmed(updated.getId(), updated.getUserId(), null, updated.getOrderNumber(),
+                    updated.getTotal().toPlainString(),
+                    updated.getCurrencyCode() != null ? updated.getCurrencyCode() : "USD", totalUsd,
+                    updated.getItems() != null ? updated.getItems().size() : 0);
+            log.info("::> Published order.confirmed event for order={}, userId={}, totalLocal={} {}, totalUsd={}",
+                    updated.getOrderNumber(), updated.getUserId(), updated.getTotal().toPlainString(),
+                    updated.getCurrencyCode(), totalUsd);
+        }
+
         if (newStatus == OrderStatus.DELIVERED) {
-            BigDecimal totalUsd = updated.getTotal().getAmount();
-            if (updated.getExchangeRateToUsd() != null && updated.getExchangeRateToUsd().compareTo(BigDecimal.ZERO) > 0
-                    && !"USD".equalsIgnoreCase(updated.getCurrencyCode())) {
-                totalUsd = updated.getTotal().getAmount().multiply(updated.getExchangeRateToUsd()).setScale(2,
-                        java.math.RoundingMode.HALF_UP);
-            }
+            String totalUsd = toUsdPlainString(updated);
             orderEventPort.publishOrderDelivered(updated.getId(), updated.getUserId(), null, updated.getOrderNumber(),
-                    totalUsd.toPlainString());
+                    totalUsd);
             log.info("::> Published order.delivered event for order={}, userId={}, totalLocal={} {}, totalUsd={}",
                     updated.getOrderNumber(), updated.getUserId(), updated.getTotal().toPlainString(),
-                    updated.getCurrencyCode(), totalUsd.toPlainString());
+                    updated.getCurrencyCode(), totalUsd);
         }
 
         return updated;
+    }
+
+    private String toUsdPlainString(Order order) {
+        BigDecimal totalUsd = order.getTotal().getAmount();
+        if (order.getExchangeRateToUsd() != null && order.getExchangeRateToUsd().compareTo(BigDecimal.ZERO) > 0
+                && !"USD".equalsIgnoreCase(order.getCurrencyCode())) {
+            totalUsd = order.getTotal().getAmount().multiply(order.getExchangeRateToUsd()).setScale(2,
+                    java.math.RoundingMode.HALF_UP);
+        }
+        return totalUsd.toPlainString();
     }
 
     @Override
@@ -576,8 +623,32 @@ public class OrderUseCaseImpl implements OrderUseCase {
      * Builds the template variables map for the invoice email notification. All
      * values are strings (as required by the Avro EmailNotificationEvent schema).
      */
+    /**
+     * Resolves the customer-facing locale for invoice emails / PDFs. Prefers the
+     * explicit {@code customerLocale} stored on the order (set from the frontend
+     * language context). Falls back to a country-code heuristic on the shipping
+     * address — PT for Brazil/Portugal, EN for US/UK/CA/AU, ES for everything else
+     * (MX, CO, AR, CL, ES, …).
+     */
+    private String resolveCustomerLocale(Order order) {
+        // TODO: once Order has a customerLocale column, prefer it.
+        Map<String, Object> addr = order.getShippingAddress();
+        if (addr == null)
+            return "es";
+        String country = String.valueOf(addr.getOrDefault("country", "")).trim().toUpperCase();
+        return switch (country) {
+            case "BR", "PT" -> "pt";
+            case "US", "UK", "GB", "CA", "AU", "NZ", "IE" -> "en";
+            default -> "es";
+        };
+    }
+
     private Map<String, String> buildInvoiceEmailVars(Order order, Invoice invoice) {
         Map<String, String> vars = new LinkedHashMap<>();
+        // Inferred locale — the notification service reads this to pick the
+        // right messages_XX.properties bundle. Without it, the email renders
+        // in the default language regardless of who the customer is.
+        vars.put("lang", resolveCustomerLocale(order));
         vars.put("invoiceNumber", invoice.getInvoiceNumber());
         vars.put("orderNumber", order.getOrderNumber());
         vars.put("issueDate", invoice.getIssueDate().toString());
@@ -605,8 +676,9 @@ public class OrderUseCaseImpl implements OrderUseCase {
         vars.put("total", fmt(invoice.getTotal()));
         vars.put("currency", order.getCurrencyCode() != null ? order.getCurrencyCode() : "USD");
 
-        // Invoice download URL & QR code
-        String invoiceUrl = storeUrl + "/api/v1/invoices/order/" + order.getId() + "/pdf";
+        // Invoice download URL & QR code — signed link so the customer can
+        // open it from the email without having to log in.
+        String invoiceUrl = storeUrl + invoicePdfUrlSigner.signPath(order.getId());
         vars.put("invoiceUrl", invoiceUrl);
         vars.put("qrCodeUrl", "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data="
                 + URLEncoder.encode(invoiceUrl, StandardCharsets.UTF_8));

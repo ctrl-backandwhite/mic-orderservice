@@ -443,4 +443,65 @@ public class CjShoppingClient implements CjShoppingPort {
     private String str(Object value) {
         return value != null ? value.toString() : "";
     }
+
+    // ── Webhook registration ────────────────────────────────────────────────
+
+    @Override
+    @Retry(name = RESILIENCE4J_INSTANCE)
+    @CircuitBreaker(name = RESILIENCE4J_INSTANCE)
+    @SuppressWarnings("unchecked")
+    public String getRegisteredWebhookUrl() {
+        log.info("::> Fetching registered webhook URL from CJ...");
+        String accessToken = cjShoppingTokenManager.getValidAccessToken();
+
+        try {
+            CjApiResponseDto<Map<String, Object>> response = cjShoppingWebClient.get().uri("/webhook/get")
+                    .header("CJ-Access-Token", accessToken).retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<Map<String, Object>>>() {
+                    }).timeout(DATA_TIMEOUT).block();
+
+            if (response == null || response.getData() == null) {
+                return "";
+            }
+            Object url = response.getData().get("callBackUrl");
+            return url != null ? url.toString() : "";
+        } catch (Exception e) {
+            log.warn("::> CJ webhook/get failed: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    @Override
+    @Retry(name = RESILIENCE4J_INSTANCE)
+    @CircuitBreaker(name = RESILIENCE4J_INSTANCE)
+    public void registerWebhookUrl(String callbackUrl) {
+        log.info("::> Registering CJ webhook URL: {}", callbackUrl);
+        String accessToken = cjShoppingTokenManager.getValidAccessToken();
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("callBackUrl", callbackUrl);
+        body.put("type", "ENABLE");
+        body.put("messageTypeList", List.of("PRODUCT", "STOCK", "ORDER", "LOGISTICS"));
+
+        try {
+            CjApiResponseDto<Object> response = cjShoppingWebClient.post().uri("/webhook/set")
+                    .header("CJ-Access-Token", accessToken).bodyValue(body).retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<CjApiResponseDto<Object>>() {
+                    }).timeout(DATA_TIMEOUT).block();
+
+            if (response == null) {
+                throw new IllegalStateException("null response from CJ /webhook/set");
+            }
+            // 1606000 = webhook already exists → treat as success (plan Fase 2)
+            if (response.isSuccess() || "1606000".equals(response.getCode())) {
+                log.info("::> CJ webhook URL registered (code={})", response.getCode());
+                return;
+            }
+            throw new IllegalStateException(
+                    "CJ /webhook/set returned code=" + response.getCode() + " msg=" + response.getMessage());
+        } catch (WebClientException e) {
+            log.error("::> CJ /webhook/set network error: {}", e.getMessage());
+            throw new IllegalStateException("CJ webhook registration failed: " + e.getMessage(), e);
+        }
+    }
 }

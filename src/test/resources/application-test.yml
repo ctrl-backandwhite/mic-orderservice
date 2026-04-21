@@ -9,6 +9,16 @@ spring:
         enabled: false
         bootstrap-servers: ${spring.kafka.bootstrap-servers:localhost:9092}
 
+nx:
+    security:
+        gateway-filter:
+            skip-prefixes: /api/v1/cj/webhook
+
+app:
+    cj:
+        webhook:
+            secret: test-webhook-secret-abc123
+
 test:
     postgres:
         username: testuser

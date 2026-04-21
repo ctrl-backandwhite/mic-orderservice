@@ -6,10 +6,12 @@ import com.backandwhite.api.dto.out.InvoiceDtoOut;
 import com.backandwhite.api.mapper.InvoiceApiMapper;
 import com.backandwhite.api.util.PageableUtils;
 import com.backandwhite.application.service.InvoicePdfService;
+import com.backandwhite.application.service.InvoicePdfUrlSigner;
 import com.backandwhite.application.usecase.InvoiceUseCase;
 import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.common.security.annotation.NxAdmin;
+import com.backandwhite.common.security.annotation.NxPublic;
 import com.backandwhite.common.security.annotation.NxUser;
 import com.backandwhite.domain.model.Invoice;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +35,7 @@ public class InvoiceController {
     private final InvoiceUseCase invoiceUseCase;
     private final InvoiceApiMapper invoiceApiMapper;
     private final InvoicePdfService invoicePdfService;
+    private final InvoicePdfUrlSigner invoicePdfUrlSigner;
 
     @NxUser
     @GetMapping("/me")
@@ -67,6 +70,29 @@ public class InvoiceController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
         headers.setContentDispositionFormData("attachment", invoice.getInvoiceNumber() + ".pdf");
+        headers.setContentLength(pdf.length);
+        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
+    }
+
+    /**
+     * Public signed-URL endpoint: lets the customer download the invoice from the
+     * email link without authenticating. The URL carries an HMAC signature that
+     * covers {@code orderId + exp}; invalid or expired links return 404 to stay
+     * invisible to probes.
+     */
+    @NxPublic
+    @GetMapping("/public/order/{orderId}/pdf")
+    @Operation(summary = "Descargar factura PDF (enlace firmado del email)")
+    public ResponseEntity<byte[]> downloadInvoicePdfPublic(@PathVariable String orderId, @RequestParam long exp,
+            @RequestParam String sig) {
+        if (!invoicePdfUrlSigner.verify(orderId, exp, sig)) {
+            return ResponseEntity.notFound().build();
+        }
+        Invoice invoice = invoiceUseCase.findByOrderId(orderId);
+        byte[] pdf = invoicePdfService.generatePdf(invoice);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("inline", invoice.getInvoiceNumber() + ".pdf");
         headers.setContentLength(pdf.length);
         return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
     }

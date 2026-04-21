@@ -96,3 +96,11 @@ databaseChangeLog:
                     - sqlFile:
                             path: db.changelog-2.2.sql
                             relativeToChangelogFile: "true"
+      - changeSet:
+              id: 13
+              author: Jesus.Finol
+              context: local,develop
+              changes:
+                    - sqlFile:
+                            path: db.changelog-2.3.sql
+                            relativeToChangelogFile: "true"

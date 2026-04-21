@@ -79,6 +79,9 @@ class OrderUseCaseImplTest {
     @Mock
     private OrderEventPort orderEventPort;
 
+    @Mock
+    private com.backandwhite.application.service.InvoicePdfUrlSigner invoicePdfUrlSigner;
+
     @InjectMocks
     private OrderUseCaseImpl useCase;
 
@@ -469,8 +472,19 @@ class OrderUseCaseImplTest {
     }
 
     @Test
-    void confirmOrder_notDraft_throws() {
+    void confirmOrder_alreadyPending_idempotentReturn() {
+        // Async Kafka consumer may have already advanced the order to PENDING
+        // by the time the frontend hits confirmOrder. The call must be
+        // idempotent — return the current order, do NOT throw.
         Order order = Order.builder().id("o1").status(OrderStatus.PENDING).build();
+        when(orderRepository.findById("o1")).thenReturn(Optional.of(order));
+        Order result = useCase.confirmOrder("o1", "u1", "e@x");
+        assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
+    }
+
+    @Test
+    void confirmOrder_cancelled_throws() {
+        Order order = Order.builder().id("o1").status(OrderStatus.CANCELLED).build();
         when(orderRepository.findById("o1")).thenReturn(Optional.of(order));
         assertThatThrownBy(() -> useCase.confirmOrder("o1", "u1", "e@x")).isInstanceOf(BusinessException.class);
     }
@@ -670,6 +684,20 @@ class OrderUseCaseImplTest {
 
         useCase.updateStatus("o1", OrderStatus.DELIVERED, "admin", "Delivered");
         verify(orderEventPort).publishOrderDelivered(anyString(), anyString(), any(), anyString(), eq("110.00"));
+    }
+
+    @Test
+    void updateStatus_confirmed_publishesConfirmedWithUsdTotal() {
+        Order order = Order.builder().id("o1").orderNumber("NX-1").userId("u1").status(OrderStatus.PENDING)
+                .total(Money.of(new BigDecimal("100.00"))).currencyCode("EUR").exchangeRateToUsd(new BigDecimal("1.1"))
+                .items(java.util.List.of()).build();
+        when(orderRepository.findById("o1")).thenReturn(Optional.of(order));
+        when(orderRepository.update(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        useCase.updateStatus("o1", OrderStatus.CONFIRMED, "SYSTEM", "Payment confirmed");
+
+        verify(orderEventPort).publishOrderConfirmed(anyString(), anyString(), any(), anyString(), eq("100.00"),
+                eq("EUR"), eq("110.00"), anyInt());
     }
 
     // ── cancel ───────────────────────────────────────────────

@@ -29,9 +29,24 @@ public class CjOrderFulfillmentUseCaseImpl implements CjOrderFulfillmentUseCase 
     private final OrderUseCase orderUseCase;
     private final CjFulfillmentPipelineService pipelineService;
 
+    /**
+     * Global kill-switch. When {@code false}, {@link #submitOrderToCj} is a no-op —
+     * useful for local testing that stops just before the saga fires. Leaves the
+     * rest of the flow (ledger, snapshot, history) intact. Defaults to {@code true}
+     * so plain unit tests (no Spring context, no {@code @Value} resolution) still
+     * exercise the submit path.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.cj.enabled:true}")
+    private boolean cjEnabled = true;
+
     @Override
     @Transactional
     public CjOrder submitOrderToCj(String orderId) {
+        if (!cjEnabled) {
+            log.warn("::> CJ DISABLED (app.cj.enabled=false) — skipping submit for orderId={}", orderId);
+            return CjOrder.builder().orderId(orderId).cjOrderStatus(CjOrderStatus.UNPAID).fulfillmentStep("DISABLED")
+                    .build();
+        }
         log.info("::> Submitting order={} to CJ Dropshipping...", orderId);
         Order order = orderUseCase.findById(orderId);
 

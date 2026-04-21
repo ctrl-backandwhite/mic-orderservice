@@ -30,3 +30,17 @@ spring:
 logging:
     level:
         root: INFO
+
+# ── Local testing flags ─────────────────────────────────────────────────────
+# app.cj.mock-mode=true → MockCjShoppingAdapter reemplaza el cliente HTTP real.
+#   Nada se envía a CJ Dropshipping: createOrder, addCart, payBalanceV2, etc.
+#   devuelven respuestas sintéticas con IDs "MOCK_*". Todo lo demás (ledger,
+#   snapshot, historial, tracking UI, webhooks entrantes) funciona normal.
+# Override desde env: CJ_MOCK_MODE=false para hablar con CJ real.
+#
+# CJ_ENABLED controla el scheduler + el registro de webhooks al arranque;
+# déjalo en false si tampoco quieres que el scheduler corra en local.
+app:
+    cj:
+        mock-mode: ${CJ_MOCK_MODE:true}
+        enabled: ${CJ_ENABLED:false}

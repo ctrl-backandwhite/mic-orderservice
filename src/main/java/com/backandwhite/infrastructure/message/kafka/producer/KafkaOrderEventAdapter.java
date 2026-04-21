@@ -32,11 +32,11 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
     }
 
     public void publishOrderConfirmed(String orderId, String userId, String email, String orderReference,
-            String totalAmount, String currencyCode, int itemCount) {
+            String totalAmount, String currencyCode, String totalAmountUsd, int itemCount) {
         OrderConfirmedEvent event = OrderConfirmedEvent.newBuilder().setOrderId(orderId).setUserId(userId)
                 .setEmail(email).setOrderReference(orderReference).setTotalAmount(totalAmount)
-                .setCurrency(currencyCode != null ? currencyCode : "USD").setItemCount(itemCount).setTimestamp(now())
-                .build();
+                .setCurrency(currencyCode != null ? currencyCode : "USD").setTotalAmountUsd(totalAmountUsd)
+                .setItemCount(itemCount).setTimestamp(now()).build();
         send(AppConstants.KAFKA_TOPIC_ORDER_CONFIRMED, orderId, event);
     }
 
@@ -192,6 +192,36 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
                 .setUserId("SYSTEM").setEmail(null).setOrderReference(balance).setPreviousStatus(balance)
                 .setNewStatus("CJ_BALANCE_LOW").setTimestamp(now()).build();
         send(AppConstants.KAFKA_TOPIC_CJ_BALANCE_LOW, "BALANCE_MONITOR", event);
+    }
+
+    // ── Fase 12 — Catalog reverse sync events ────────────────────────────────
+
+    @Override
+    public void publishCatalogProductUpdate(String pid, String rawPayload) {
+        OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(pid).setUserId("CJ")
+                .setEmail(null).setOrderReference(rawPayload != null ? truncate(rawPayload, 500) : "")
+                .setPreviousStatus("CATALOG").setNewStatus("PRODUCT_UPDATE").setTimestamp(now()).build();
+        send(AppConstants.KAFKA_TOPIC_CJ_CATALOG_PRODUCT_UPDATE, pid, event);
+    }
+
+    @Override
+    public void publishCatalogProductDelete(String pid) {
+        OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(pid).setUserId("CJ")
+                .setEmail(null).setOrderReference("").setPreviousStatus("CATALOG").setNewStatus("PRODUCT_DELETE")
+                .setTimestamp(now()).build();
+        send(AppConstants.KAFKA_TOPIC_CJ_CATALOG_PRODUCT_DELETE, pid, event);
+    }
+
+    @Override
+    public void publishCatalogStockChange(String vid, Integer remaining, String rawPayload) {
+        OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(vid).setUserId("CJ")
+                .setEmail(null).setOrderReference(String.valueOf(remaining)).setPreviousStatus("CATALOG")
+                .setNewStatus("STOCK_CHANGE").setTimestamp(now()).build();
+        send(AppConstants.KAFKA_TOPIC_CJ_CATALOG_STOCK_CHANGE, vid, event);
+    }
+
+    private static String truncate(String s, int max) {
+        return s.length() <= max ? s : s.substring(0, max);
     }
 
     // ── Common ───────────────────────────────────────────────────────────────

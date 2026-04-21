@@ -15,7 +15,7 @@ public class NoOpOrderEventAdapter implements OrderEventPort {
 
     @Override
     public void publishOrderConfirmed(String orderId, String userId, String email, String orderReference,
-            String totalAmount, String currencyCode, int itemCount) {
+            String totalAmount, String currencyCode, String totalAmountUsd, int itemCount) {
     }
 
     @Override
@@ -99,5 +99,17 @@ public class NoOpOrderEventAdapter implements OrderEventPort {
 
     @Override
     public void publishCjBalanceLow(String balance, String threshold) {
+    }
+
+    @Override
+    public void publishCatalogProductUpdate(String pid, String rawPayload) {
+    }
+
+    @Override
+    public void publishCatalogProductDelete(String pid) {
+    }
+
+    @Override
+    public void publishCatalogStockChange(String vid, Integer remaining, String rawPayload) {
     }
 }

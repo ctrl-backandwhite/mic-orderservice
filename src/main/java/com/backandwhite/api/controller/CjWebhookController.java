@@ -3,14 +3,18 @@ package com.backandwhite.api.controller;
 import com.backandwhite.api.dto.webhook.*;
 import com.backandwhite.application.service.CjLogisticWebhookHandler;
 import com.backandwhite.application.service.CjOrderWebhookHandler;
+import com.backandwhite.common.exception.EntityNotFoundException;
 import com.backandwhite.common.security.annotation.NxPublic;
+import com.backandwhite.infrastructure.configuration.CjWebhookProperties;
 import com.backandwhite.infrastructure.db.postgres.entity.CjWebhookLogEntity;
 import com.backandwhite.infrastructure.db.postgres.repository.CjWebhookLogJpaRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -20,15 +24,12 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Receives push notifications (webhooks) sent by CJ Dropshipping.
  * <p>
- * All endpoints:
- * <ul>
- * <li>Are publicly accessible (no auth header required — CJ does not send
- * one).</li>
- * <li>Perform idempotency checks via {@code cj_webhook_log}.</li>
- * <li>Must respond quickly with {@code {"result": true}} so CJ does not
- * retry.</li>
- * <li>Delegate actual processing to handler beans.</li>
- * </ul>
+ * CJ does not sign requests with HMAC. Authentication is based on an opaque
+ * rotable token embedded in the URL path
+ * ({@code /api/v1/cj/webhook/{token}/…}). Requests whose token does not match
+ * the configured {@code app.cj.webhook.secret} are rejected with
+ * {@code 404 Not Found} — the goal is to keep the endpoint invisible to probes
+ * that do not already know the secret.
  */
 @Log4j2
 @RestController
@@ -41,6 +42,7 @@ public class CjWebhookController {
     private final CjOrderWebhookHandler orderWebhookHandler;
     private final CjLogisticWebhookHandler logisticWebhookHandler;
     private final ObjectMapper objectMapper;
+    private final CjWebhookProperties webhookProperties;
 
     /** CJ-required success response. */
     private static final Map<String, Object> OK = Map.of("result", true);
@@ -48,10 +50,11 @@ public class CjWebhookController {
     // ─── ORDER + ORDERSPLIT ───────────────────────────────────────────────────
 
     @NxPublic
-    @PostMapping("/order")
+    @PostMapping("/{token}/order")
     @Operation(summary = "Receive CJ order status change webhooks (ORDER / ORDERSPLIT)")
-    public ResponseEntity<Map<String, Object>> receiveOrderWebhook(
+    public ResponseEntity<Map<String, Object>> receiveOrderWebhook(@PathVariable String token,
             @RequestBody CjWebhookPayload<Map<String, Object>> rawPayload) {
+        assertTokenMatches(token);
 
         String messageId = rawPayload.getMessageId();
         log.info("CJ order webhook received: messageId={} type={} messageType={}", messageId, rawPayload.getType(),
@@ -84,10 +87,11 @@ public class CjWebhookController {
     // ─── LOGISTICS ───────────────────────────────────────────────────────────
 
     @NxPublic
-    @PostMapping("/logistics")
+    @PostMapping("/{token}/logistics")
     @Operation(summary = "Receive CJ logistics / tracking update webhooks")
-    public ResponseEntity<Map<String, Object>> receiveLogisticsWebhook(
+    public ResponseEntity<Map<String, Object>> receiveLogisticsWebhook(@PathVariable String token,
             @RequestBody CjWebhookPayload<Map<String, Object>> rawPayload) {
+        assertTokenMatches(token);
 
         String messageId = rawPayload.getMessageId();
         log.info("CJ logistics webhook received: messageId={} type={} messageType={}", messageId, rawPayload.getType(),
@@ -112,6 +116,21 @@ public class CjWebhookController {
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Verifies the path token matches the configured secret using a constant-time
+     * comparison to avoid leaking timing-side-channel info. On mismatch (or when no
+     * secret is configured), throws {@link EntityNotFoundException} so the response
+     * is indistinguishable from any other 404 on the service.
+     */
+    private void assertTokenMatches(String token) {
+        String expected = webhookProperties.getSecret();
+        if (expected == null || expected.isBlank() || token == null
+                || !MessageDigest.isEqual(token.getBytes(), expected.getBytes())) {
+            log.warn("CJ webhook rejected: token mismatch");
+            throw new EntityNotFoundException("NF-WEBHOOK", List.of("Not Found"));
+        }
+    }
 
     private boolean isDuplicate(String messageId) {
         return messageId != null && webhookLogRepository.existsByMessageId(messageId);

@@ -18,6 +18,18 @@ spring:
         template:
             observation-enabled: true
 
+nx:
+    security:
+        gateway-filter:
+            # Comma-separated list of path prefixes that skip the gateway
+            # auth header + OAuth2 filter chain. Used for:
+            #  - /api/v1/cj/webhook          → CJ push callbacks (HMAC-token
+            #                                   in the path instead of JWT)
+            #  - /api/v1/invoices/public     → invoice PDF signed URLs
+            #                                   opened from email (HMAC sig
+            #                                   in the query string)
+            skip-prefixes: /api/v1/cj/webhook,/api/v1/invoices/public
+
 app:
     store:
         url: ${APP_STORE_URL:http://localhost:9000}
@@ -25,12 +37,16 @@ app:
         enabled: ${CJ_ENABLED:false}
         default-logistic-name: ${CJ_DEFAULT_LOGISTIC_NAME:CJPacket Ordinary}
         from-country-code: ${CJ_FROM_COUNTRY_CODE:CN}
-        status-sync-cron: ${CJ_STATUS_SYNC_CRON:0 */15 * * * *}
+        status-sync-cron: ${CJ_STATUS_SYNC_CRON:0 */10 * * * *}
         retry-cron: ${CJ_RETRY_CRON:0 */30 * * * *}
         pipeline-retry-cron: ${CJ_PIPELINE_RETRY_CRON:0 */30 * * * *}
         sync-batch-size: ${CJ_SYNC_BATCH_SIZE:20}
         min-balance-alert: ${CJ_MIN_BALANCE_ALERT:50.00}
+        min-gross-margin-usd: ${CJ_MIN_GROSS_MARGIN_USD:3.00}
         balance-check-cron: ${CJ_BALANCE_CHECK_CRON:0 0 * * * *}
+        retention:
+            audit-log-cron: ${CJ_RETENTION_AUDIT_LOG_CRON:0 30 3 * * *}
+            webhook-log-cron: ${CJ_RETENTION_WEBHOOK_LOG_CRON:0 45 3 * * *}
         webhook:
             base-url: ${CJ_WEBHOOK_BASE_URL:}
             secret: ${CJ_WEBHOOK_SECRET:}

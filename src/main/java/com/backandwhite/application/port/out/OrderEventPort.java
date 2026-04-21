@@ -8,7 +8,7 @@ public interface OrderEventPort {
             String currencyCode, String status, int itemCount, String shippingAddressId);
 
     void publishOrderConfirmed(String orderId, String userId, String email, String orderReference, String totalAmount,
-            String currencyCode, int itemCount);
+            String currencyCode, String totalAmountUsd, int itemCount);
 
     void publishOrderStatusUpdated(String orderId, String userId, String email, String orderReference,
             String previousStatus, String newStatus);
@@ -83,4 +83,18 @@ public interface OrderEventPort {
 
     /** Published when CJ account balance drops below the configured threshold. */
     void publishCjBalanceLow(String balance, String threshold);
+
+    // ── Fase 12 — Catalog reverse sync ───────────────────────────────────────
+
+    /**
+     * CJ pushed a PRODUCT update — catalog service must re-apply margin + re-index
+     * ES.
+     */
+    void publishCatalogProductUpdate(String pid, String rawPayload);
+
+    /** CJ pushed a PRODUCT delete — catalog service must mark DISCONTINUED. */
+    void publishCatalogProductDelete(String pid);
+
+    /** CJ pushed a STOCK change for one variant. */
+    void publishCatalogStockChange(String vid, Integer remaining, String rawPayload);
 }

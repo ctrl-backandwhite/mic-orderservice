@@ -1,6 +1,7 @@
 package com.backandwhite.infrastructure.message.kafka.consumer;
 
 import com.backandwhite.application.service.OrderCompensationService;
+import com.backandwhite.application.service.OrderPaymentReconciliationService;
 import com.backandwhite.application.usecase.CjOrderFulfillmentUseCase;
 import com.backandwhite.application.usecase.OrderUseCase;
 import com.backandwhite.common.constants.AppConstants;
@@ -9,6 +10,7 @@ import com.backandwhite.core.kafka.avro.PaymentFailedEvent;
 import com.backandwhite.core.kafka.avro.ShippingOrderDeliveredEvent;
 import com.backandwhite.core.kafka.avro.ShippingOrderShippedEvent;
 import com.backandwhite.domain.valueobject.OrderStatus;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -27,15 +29,42 @@ public class OrderEventConsumerService {
     private final OrderUseCase orderUseCase;
     private final OrderCompensationService orderCompensationService;
     private final CjOrderFulfillmentUseCase cjOrderFulfillmentUseCase;
+    private final OrderPaymentReconciliationService reconciliationService;
 
     @KafkaListener(topics = AppConstants.KAFKA_TOPIC_PAYMENT_CONFIRMED, groupId = AppConstants.KAFKA_GROUP_ORDER, containerFactory = "avroKafkaListenerContainerFactory")
     public void onPaymentConfirmed(PaymentConfirmedEvent event) {
         String orderId = str(event.getOrderId());
-        log.info("::> Received payment.confirmed: orderId={}, paymentId={}, amount={}", orderId,
-                str(event.getPaymentId()), str(event.getAmount()));
+        String paymentId = str(event.getPaymentId());
+        log.info("::> Received payment.confirmed: orderId={}, paymentId={}, amount={}", orderId, paymentId,
+                str(event.getAmount()));
         try {
-            orderUseCase.updateStatus(orderId, OrderStatus.CONFIRMED, "SYSTEM", "Payment confirmed");
-            // Submit to CJ Dropshipping after confirmation
+            // Walk the allowed ladder DRAFT → PENDING → CONFIRMED. The frontend
+            // also calls confirmOrder (DRAFT → PENDING) in parallel, so here
+            // we nudge the state forward without assuming where it is.
+            try {
+                var current = orderUseCase.findById(orderId);
+                if (current != null && current.getStatus() == OrderStatus.DRAFT) {
+                    orderUseCase.updateStatus(orderId, OrderStatus.PENDING, "SYSTEM",
+                            "Payment confirmed async — advancing DRAFT→PENDING");
+                }
+            } catch (Exception step1) {
+                log.debug("::> DRAFT→PENDING skipped: {}", step1.getMessage());
+            }
+            try {
+                orderUseCase.updateStatus(orderId, OrderStatus.CONFIRMED, "SYSTEM", "Payment confirmed");
+            } catch (Exception step2) {
+                // Idempotent — may already be CONFIRMED/PROCESSING by another path.
+                log.debug("::> PENDING→CONFIRMED skipped: {}", step2.getMessage());
+            }
+
+            // Fase 5 + 8.3 — ledger INBOUND + item snapshot + margin gate
+            boolean marginAcceptable = runReconciliation(event, orderId, paymentId);
+            if (!marginAcceptable) {
+                log.warn("::> Order {} flagged NEEDS_REVIEW — NOT submitting to CJ", orderId);
+                return;
+            }
+
+            // Submit to CJ Dropshipping only if reconciliation passed
             try {
                 cjOrderFulfillmentUseCase.submitOrderToCj(orderId);
             } catch (Exception cjEx) {
@@ -44,6 +73,18 @@ public class OrderEventConsumerService {
             }
         } catch (Exception e) {
             log.error("::> Failed processing payment.confirmed for order={}: {}", orderId, e.getMessage(), e);
+        }
+    }
+
+    private boolean runReconciliation(PaymentConfirmedEvent event, String orderId, String paymentId) {
+        try {
+            BigDecimal amount = new BigDecimal(str(event.getAmount()));
+            return reconciliationService.onPaymentConfirmed(orderId, paymentId, amount, str(event.getCurrency()),
+                    str(event.getGateway()), str(event.getTransactionRef()));
+        } catch (Exception reconEx) {
+            log.error("::> Reconciliation failed for order={}: {} — failing safe (skip CJ submit)", orderId,
+                    reconEx.getMessage(), reconEx);
+            return false;
         }
     }
 

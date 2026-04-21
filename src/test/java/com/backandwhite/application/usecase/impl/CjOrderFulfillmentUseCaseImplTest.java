@@ -46,6 +46,24 @@ class CjOrderFulfillmentUseCaseImplTest {
     private CjOrderFulfillmentUseCaseImpl useCase;
 
     @Test
+    void submitOrderToCj_whenDisabled_noOpReturnsStub() throws Exception {
+        // Flip the kill-switch off via reflection (same effect as
+        // app.cj.enabled=false in application.yaml)
+        java.lang.reflect.Field f = CjOrderFulfillmentUseCaseImpl.class.getDeclaredField("cjEnabled");
+        f.setAccessible(true);
+        f.setBoolean(useCase, false);
+
+        CjOrder result = useCase.submitOrderToCj("o1");
+
+        assertThat(result.getOrderId()).isEqualTo("o1");
+        assertThat(result.getFulfillmentStep()).isEqualTo("DISABLED");
+        verify(orderUseCase, never()).findById(anyString());
+        verify(cjShoppingPort, never()).createOrder(any());
+        verify(cjOrderRepository, never()).save(any());
+        verify(pipelineService, never()).processFulfillment(any());
+    }
+
+    @Test
     void submitOrderToCj_notYetSubmitted_submitsAndSaves() {
         Order order = Order.builder().id("o1").build();
         when(orderUseCase.findById("o1")).thenReturn(order);

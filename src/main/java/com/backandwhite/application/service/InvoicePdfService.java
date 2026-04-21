@@ -50,15 +50,26 @@ public class InvoicePdfService {
         ctx.setVariable("issueDateFmt", fmtDate(invoice.getIssueDate()));
         ctx.setVariable("dueDateFmt", fmtDate(invoice.getDueDate()));
 
-        // Customer snapshot
+        // Customer snapshot — tolerate both shapes the rest of the codebase
+        // uses: either a flat {name, email, phone, address} map (built by
+        // OrderUseCaseImpl at confirm time) or a granular {firstName,
+        // lastName, street, city, state, zipCode, country, email, phone}
+        // map (legacy path). Missing fields resolve to empty strings so
+        // the template never crashes on a partial snapshot.
         Map<String, Object> customer = invoice.getCustomerSnapshot();
         if (customer != null) {
+            String flatName = str(customer.get("name"));
             String firstName = str(customer.get("firstName"));
             String lastName = str(customer.get("lastName"));
-            ctx.setVariable("customerName", (firstName + " " + lastName).trim());
+            String resolvedName = !flatName.isEmpty() ? flatName : (firstName + " " + lastName).trim();
+
+            String flatAddress = str(customer.get("address"));
+            String resolvedAddress = !flatAddress.isEmpty() ? flatAddress : buildAddress(customer);
+
+            ctx.setVariable("customerName", resolvedName);
             ctx.setVariable("customerEmail", str(customer.get("email")));
             ctx.setVariable("customerPhone", str(customer.get("phone")));
-            ctx.setVariable("customerAddress", buildAddress(customer));
+            ctx.setVariable("customerAddress", resolvedAddress);
         } else {
             ctx.setVariable("customerName", "");
             ctx.setVariable("customerEmail", "");
@@ -142,14 +153,17 @@ public class InvoicePdfService {
         if (method == null)
             return "";
         return switch (method.toUpperCase()) {
-            case "CREDIT_CARD" -> "Tarjeta de crédito";
+            // Frontend sends one of {CARD, PAYPAL, USDT, BTC} (see
+            // paymentMethodMap in useCheckoutSubmit.ts). Older integrations
+            // send CREDIT_CARD / DEBIT_CARD — keep those for compatibility.
+            case "CARD", "CREDIT_CARD" -> "Tarjeta de crédito";
             case "DEBIT_CARD" -> "Tarjeta de débito";
             case "PAYPAL" -> "PayPal";
             case "BANK_TRANSFER" -> "Transferencia bancaria";
             case "GIFT_CARD" -> "Tarjeta de regalo";
             case "MIXED" -> "Pago mixto";
-            case "CRYPTO_USDT" -> "USDT";
-            case "CRYPTO_BTC" -> "Bitcoin";
+            case "USDT", "CRYPTO_USDT" -> "USDT";
+            case "BTC", "CRYPTO_BTC" -> "Bitcoin";
             case "NONE" -> "Sin cargo";
             default -> method.replace("_", " ");
         };
