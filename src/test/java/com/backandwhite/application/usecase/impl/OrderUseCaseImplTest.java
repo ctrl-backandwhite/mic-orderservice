@@ -132,7 +132,7 @@ class OrderUseCaseImplTest {
         });
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", null, null, null, null, null,
-                "Some notes", "USD");
+                "Some notes", "USD", null);
 
         assertThat(result).isNotNull();
         assertThat(result.getId()).isEqualTo("o1");
@@ -143,14 +143,14 @@ class OrderUseCaseImplTest {
     @Test
     void createFromCart_missingShippingAddress_throws() {
         assertThatThrownBy(
-                () -> useCase.createFromCart("u1", null, null, null, "card", null, null, null, null, null, null, "USD"))
+                () -> useCase.createFromCart("u1", null, null, null, "card", null, null, null, null, null, null, "USD", null))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void createFromCart_emptyAddress_throws() {
         assertThatThrownBy(() -> useCase.createFromCart("u1", null, Map.of(), null, "card", null, null, null, null,
-                null, null, "USD")).isInstanceOf(BusinessException.class);
+                null, null, "USD", null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -159,7 +159,7 @@ class OrderUseCaseImplTest {
         when(cartRepository.findActiveBySessionId(null)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> useCase.createFromCart("u1", null, validAddress(), null, "card", null, null, null,
-                null, null, null, "USD")).isInstanceOf(BusinessException.class);
+                null, null, null, "USD", null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -168,7 +168,7 @@ class OrderUseCaseImplTest {
         when(cartRepository.findActiveByUserId("u1")).thenReturn(Optional.of(cart));
 
         assertThatThrownBy(() -> useCase.createFromCart("u1", null, validAddress(), null, "card", null, null, null,
-                null, null, null, "USD")).isInstanceOf(BusinessException.class);
+                null, null, null, "USD", null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -182,7 +182,7 @@ class OrderUseCaseImplTest {
         when(catalogClient.getAvailableStock("v1")).thenReturn(0);
 
         assertThatThrownBy(() -> useCase.createFromCart("u1", null, validAddress(), null, "card", null, null, null,
-                null, null, null, "USD")).isInstanceOf(BusinessException.class);
+                null, null, null, "USD", null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -202,7 +202,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart(null, "s1", validAddress(), null, "card", null, null, null, null, null,
-                null, "USD");
+                null, "USD", null);
         assertThat(result).isNotNull();
     }
 
@@ -224,7 +224,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", null, null, null, null, null,
-                null, "USD");
+                null, "USD", null);
         assertThat(result.getShippingCost().getAmount()).isEqualByComparingTo("5.00");
     }
 
@@ -245,7 +245,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", null, null, null, null, null,
-                null, "USD");
+                null, "USD", null);
         assertThat(result.getShippingCost().isZero()).isTrue();
     }
 
@@ -269,7 +269,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", "SAVE10", null, null, null,
-                null, null, "USD");
+                null, null, "USD", null);
         assertThat(result.getDiscountAmount().getAmount()).isEqualByComparingTo("2.00");
     }
 
@@ -293,7 +293,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", "FREESHIP", null, null, null,
-                null, null, "USD");
+                null, null, "USD", null);
         assertThat(result.getShippingCost().isZero()).isTrue();
     }
 
@@ -315,7 +315,7 @@ class OrderUseCaseImplTest {
         when(couponUseCase.findByCode("SCOPED")).thenReturn(coupon);
 
         assertThatThrownBy(() -> useCase.createFromCart("u1", null, validAddress(), null, "card", "SCOPED", null, null,
-                null, null, null, "USD")).isInstanceOf(BusinessException.class);
+                null, null, null, "USD", null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -338,7 +338,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", "FIX5", null, null, null, null,
-                null, "USD");
+                null, "USD", null);
         // Discount caps at subtotal = 20
         assertThat(result.getDiscountAmount().getAmount()).isEqualByComparingTo("20.00");
     }
@@ -363,7 +363,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", "CAT", null, null, null, null,
-                null, "USD");
+                null, "USD", null);
         assertThat(result.getDiscountAmount().isPositive()).isTrue();
     }
 
@@ -384,7 +384,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", null, null, null, null, null,
-                null, "EUR");
+                null, "EUR", null);
         assertThat(result.getCurrencyCode()).isEqualTo("EUR");
         assertThat(result.getSubtotal().getAmount()).isEqualByComparingTo("18.00");
     }
@@ -406,7 +406,7 @@ class OrderUseCaseImplTest {
 
         Map<String, Object> addr = validAddress();
         Order result = useCase.createFromCart("u1", null, addr, null, "card", null, null, null, null, null, null,
-                "USD");
+                "USD", null);
         assertThat(result.getBillingAddress()).isEqualTo(addr);
     }
 
@@ -423,7 +423,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", null, null, null, null, null,
-                null, "USD");
+                null, "USD", null);
         assertThat(result).isNotNull();
     }
 
@@ -444,7 +444,7 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = useCase.createFromCart("u1", null, validAddress(), null, "card", null, null, null, null, null,
-                null, "USD");
+                null, "USD", null);
         assertThat(result.getCampaignDiscountTotal().isPositive()).isTrue();
     }
 

@@ -167,8 +167,17 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
             return subtotal.multiply(DEFAULT_TAX_RATE);
         }
 
+        // Filter out zero/negative rates so they don't shadow the default fallback
+        List<TaxRule> effectiveRules = rules.stream()
+                .filter(r -> r.getRate() != null && r.getRate().signum() > 0)
+                .toList();
+
+        if (effectiveRules.isEmpty()) {
+            return subtotal.multiply(DEFAULT_TAX_RATE);
+        }
+
         // Pick the rule with the highest rate
-        TaxRule bestRule = rules.stream().max(java.util.Comparator.comparing(TaxRule::getRate)).orElse(null);
+        TaxRule bestRule = effectiveRules.stream().max(java.util.Comparator.comparing(TaxRule::getRate)).orElse(null);
 
         if (bestRule == null) {
             return subtotal.multiply(DEFAULT_TAX_RATE);

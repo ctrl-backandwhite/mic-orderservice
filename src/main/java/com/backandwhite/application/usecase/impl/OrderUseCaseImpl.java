@@ -81,7 +81,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
     public Order createFromCart(String userId, String sessionId, Map<String, Object> shippingAddress,
             Map<String, Object> billingAddress, String paymentMethod, String couponCode, String giftCardCode,
             BigDecimal giftCardAmount, Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount, String notes,
-            String currencyCode) {
+            String currencyCode, String customerLocale) {
 
         if (shippingAddress == null || shippingAddress.isEmpty()) {
             throw MAX_ADDRESSES_REACHED.toBusinessException();
@@ -115,7 +115,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 BigDecimal itemWeight = verification.get().weight();
                 productCategoryMap.put(ci.getProductId(), categoryId);
 
-                verifiedBasePrices.put(ci, new Money[]{basePriceMoney, costPriceMoney});
+                verifiedBasePrices.put(ci, new Money[] { basePriceMoney, costPriceMoney });
                 rawSubtotal = rawSubtotal.add(basePriceMoney.multiply(ci.getQuantity()));
 
                 // Accumulate weight (M-03)
@@ -285,7 +285,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 .giftCardCode(giftCardCode).giftCardAmount(gcAmount).loyaltyPointsUsed(lyPoints)
                 .loyaltyDiscount(lyDiscount).shippingAddress(shippingAddress)
                 .billingAddress(billingAddress != null ? billingAddress : shippingAddress).paymentMethod(paymentMethod)
-                .notes(notes).campaignDiscountTotal(campaignDiscountTotal.multiply(fxRate)).items(orderItems).build();
+                .notes(notes).customerLocale(customerLocale)
+                .campaignDiscountTotal(campaignDiscountTotal.multiply(fxRate)).items(orderItems).build();
 
         Order saved = orderRepository.save(order);
 
@@ -643,7 +644,17 @@ public class OrderUseCaseImpl implements OrderUseCase {
      * (MX, CO, AR, CL, ES, …).
      */
     private String resolveCustomerLocale(Order order) {
-        // TODO: once Order has a customerLocale column, prefer it.
+        // 1. Prefer the explicit locale captured from the storefront UI.
+        if (order.getCustomerLocale() != null && !order.getCustomerLocale().isBlank()) {
+            // Normalise to a 2-letter language code (es, en, pt) — matches
+            // the messages_xx.properties bundles in mic-notificationservice.
+            String tag = order.getCustomerLocale().trim().toLowerCase();
+            int sep = tag.indexOf('-');
+            if (sep > 0)
+                tag = tag.substring(0, sep);
+            return tag;
+        }
+        // 2. Fallback: country-code heuristic on the shipping address.
         Map<String, Object> addr = order.getShippingAddress();
         if (addr == null)
             return "es";

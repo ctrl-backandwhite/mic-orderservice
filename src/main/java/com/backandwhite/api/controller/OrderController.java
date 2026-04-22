@@ -50,7 +50,8 @@ public class OrderController {
             @Valid @RequestBody CreateOrderDtoIn dto) {
         Order order = orderUseCase.createFromCart(userId, sessionId, dto.getShippingAddress(), dto.getBillingAddress(),
                 dto.getPaymentMethod(), dto.getCouponCode(), dto.getGiftCardCode(), dto.getGiftCardAmount(),
-                dto.getLoyaltyPointsUsed(), dto.getLoyaltyDiscount(), dto.getNotes(), dto.getCurrencyCode());
+                dto.getLoyaltyPointsUsed(), dto.getLoyaltyDiscount(), dto.getNotes(), dto.getCurrencyCode(),
+                dto.getCustomerLocale());
         return ResponseEntity.status(HttpStatus.CREATED).body(orderApiMapper.toDto(order));
     }
 

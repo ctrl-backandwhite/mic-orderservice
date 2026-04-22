@@ -109,6 +109,9 @@ public class OrderEntity extends AuditableEntity {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "customer_locale", length = 8)
+    private String customerLocale;
+
     @Convert(converter = MoneyConverter.class)
     @Column(name = "campaign_discount_total", precision = 12, scale = 2)
     @Builder.Default

@@ -37,6 +37,12 @@ public class Order {
     private BigDecimal exchangeRateToUsd;
     private String paymentRef;
     private String notes;
+    /**
+     * BCP-47 language tag picked by the customer in the storefront UI (e.g. "es",
+     * "en", "pt"). Stored so invoice emails / PDFs honour the buyer's preference
+     * instead of falling back to a country heuristic.
+     */
+    private String customerLocale;
     private Money campaignDiscountTotal;
     private String cjOrderId;
     private String trackNumber;

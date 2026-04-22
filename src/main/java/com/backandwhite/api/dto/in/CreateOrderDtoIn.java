@@ -45,4 +45,7 @@ public class CreateOrderDtoIn {
 
     @Schema(description = "Notas del pedido")
     private String notes;
+
+    @Schema(description = "Idioma elegido por el cliente (BCP-47). Se usa para localizar la factura por email y PDF.", example = "es")
+    private String customerLocale;
 }
