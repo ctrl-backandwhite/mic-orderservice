@@ -32,6 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 /src/main/resources/compose/.env
+.env
+.env.*
+!.env.example
 application-local.yaml
 src/main/resources/application-local.yaml
 .claude/
