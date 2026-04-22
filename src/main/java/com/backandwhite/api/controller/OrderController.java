@@ -6,6 +6,8 @@ import com.backandwhite.api.dto.in.CreateOrderDtoIn;
 import com.backandwhite.api.dto.in.UpdateOrderStatusDtoIn;
 import com.backandwhite.api.dto.out.OrderDtoOut;
 import com.backandwhite.api.dto.out.OrderStatsDtoOut;
+import com.backandwhite.api.dto.out.RevenueByDayDtoOut;
+import com.backandwhite.api.dto.out.StatusCountDtoOut;
 import com.backandwhite.api.mapper.OrderApiMapper;
 import com.backandwhite.api.util.PageableUtils;
 import com.backandwhite.application.usecase.OrderUseCase;
@@ -15,11 +17,16 @@ import com.backandwhite.common.security.annotation.NxAdmin;
 import com.backandwhite.common.security.annotation.NxUser;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderStats;
+import com.backandwhite.domain.model.RevenueByDay;
+import com.backandwhite.domain.model.StatusCount;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -146,5 +153,33 @@ public class OrderController {
     public ResponseEntity<OrderStatsDtoOut> getStats(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth) {
         OrderStats stats = orderUseCase.getStats();
         return ResponseEntity.ok(orderApiMapper.toStatsDto(stats));
+    }
+
+    @NxAdmin
+    @GetMapping("/stats/revenue-by-day")
+    @Operation(summary = "[Admin] Revenue time series", description = "Returns one row per calendar day in [from, to] with gross revenue, order count, "
+            + "refunded revenue and cancelled revenue. Used by Dashboard and Reports history charts. "
+            + "When `from` or `to` are omitted, defaults to the last 30 days ending now.")
+    public ResponseEntity<List<RevenueByDayDtoOut>> getRevenueByDay(
+            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
+            @Parameter(description = "Window start (ISO-8601 Instant, inclusive). Defaults to now − 30 days.") @RequestParam(required = false) String from,
+            @Parameter(description = "Window end (ISO-8601 Instant, inclusive). Defaults to now.") @RequestParam(required = false) String to) {
+        Instant toInst = to != null ? Instant.parse(to) : Instant.now();
+        Instant fromInst = from != null ? Instant.parse(from) : toInst.minus(30, ChronoUnit.DAYS);
+        List<RevenueByDay> series = orderUseCase.getRevenueByDay(fromInst, toInst);
+        return ResponseEntity.ok(orderApiMapper.toRevenueByDayDtoList(series));
+    }
+
+    @NxAdmin
+    @GetMapping("/stats/status-distribution")
+    @Operation(summary = "[Admin] Order status distribution", description = "Returns a count of orders bucketed by status inside [from, to]. Drives the "
+            + "order-status donut on the dashboard. Missing window defaults to the last 30 days.")
+    public ResponseEntity<List<StatusCountDtoOut>> getStatusDistribution(
+            @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth, @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        Instant toInst = to != null ? Instant.parse(to) : Instant.now();
+        Instant fromInst = from != null ? Instant.parse(from) : toInst.minus(30, ChronoUnit.DAYS);
+        List<StatusCount> dist = orderUseCase.getStatusDistribution(fromInst, toInst);
+        return ResponseEntity.ok(orderApiMapper.toStatusCountDtoList(dist));
     }
 }

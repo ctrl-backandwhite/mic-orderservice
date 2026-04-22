@@ -3,6 +3,10 @@ package com.backandwhite.domain.repository;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderStats;
 import com.backandwhite.domain.model.OrderStatusHistory;
+import com.backandwhite.domain.model.RevenueByDay;
+import com.backandwhite.domain.model.StatusCount;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -24,4 +28,8 @@ public interface OrderRepository {
     void addStatusHistory(OrderStatusHistory history);
 
     OrderStats getStats();
+
+    List<RevenueByDay> findRevenueByDay(Instant from, Instant to);
+
+    List<StatusCount> findStatusDistribution(Instant from, Instant to);
 }

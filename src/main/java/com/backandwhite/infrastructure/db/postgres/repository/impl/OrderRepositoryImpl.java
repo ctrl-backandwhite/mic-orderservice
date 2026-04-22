@@ -4,7 +4,10 @@ import com.backandwhite.common.domain.valueobject.Money;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderStats;
 import com.backandwhite.domain.model.OrderStatusHistory;
+import com.backandwhite.domain.model.RevenueByDay;
+import com.backandwhite.domain.model.StatusCount;
 import com.backandwhite.domain.repository.OrderRepository;
+import com.backandwhite.domain.valueobject.OrderStatus;
 import com.backandwhite.infrastructure.db.postgres.entity.OrderEntity;
 import com.backandwhite.infrastructure.db.postgres.entity.OrderItemEntity;
 import com.backandwhite.infrastructure.db.postgres.entity.OrderStatusHistoryEntity;
@@ -13,8 +16,12 @@ import com.backandwhite.infrastructure.db.postgres.repository.OrderJpaRepository
 import com.backandwhite.infrastructure.db.postgres.repository.OrderStatusHistoryJpaRepository;
 import com.backandwhite.infrastructure.db.postgres.specification.OrderSpecification;
 import java.math.BigDecimal;
+import java.sql.Date;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -118,5 +125,33 @@ public class OrderRepositoryImpl implements OrderRepository {
         return OrderStats.builder().totalOrders(total).pendingOrders(pending).processingOrders(processing)
                 .shippedOrders(shipped).deliveredOrders(delivered).cancelledOrders(cancelled).totalRevenue(totalRevenue)
                 .avgOrderValue(avg).build();
+    }
+
+    @Override
+    public List<RevenueByDay> findRevenueByDay(Instant from, Instant to) {
+        return orderJpa.findRevenueByDay(from, to).stream().map(row -> {
+            // Row shape: [day java.sql.Date, gross BigDecimal, orders Number,
+            // refunded BigDecimal, cancelled BigDecimal]. The JDBC driver may
+            // return java.sql.Date or java.time.LocalDate depending on the
+            // dialect — handle both.
+            LocalDate day = row[0] instanceof LocalDate ld ? ld : ((Date) row[0]).toLocalDate();
+            return RevenueByDay.builder().day(day).revenue(toBigDecimal(row[1])).orders(((Number) row[2]).longValue())
+                    .refunded(toBigDecimal(row[3])).cancelled(toBigDecimal(row[4])).build();
+        }).toList();
+    }
+
+    @Override
+    public List<StatusCount> findStatusDistribution(Instant from, Instant to) {
+        return orderJpa.findStatusDistribution(from, to).stream().map(
+                row -> StatusCount.builder().status((OrderStatus) row[0]).count(((Number) row[1]).longValue()).build())
+                .toList();
+    }
+
+    private static BigDecimal toBigDecimal(Object val) {
+        if (val == null)
+            return BigDecimal.ZERO;
+        if (val instanceof BigDecimal bd)
+            return bd;
+        return BigDecimal.valueOf(((Number) Objects.requireNonNull(val)).doubleValue());
     }
 }

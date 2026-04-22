@@ -542,6 +542,18 @@ public class OrderUseCaseImpl implements OrderUseCase {
         return orderRepository.getStats();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<RevenueByDay> getRevenueByDay(Instant from, Instant to) {
+        return orderRepository.findRevenueByDay(from, to);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StatusCount> getStatusDistribution(Instant from, Instant to) {
+        return orderRepository.findStatusDistribution(from, to);
+    }
+
     private String generateOrderNumber() {
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         int random = ThreadLocalRandom.current().nextInt(10000, 99999);

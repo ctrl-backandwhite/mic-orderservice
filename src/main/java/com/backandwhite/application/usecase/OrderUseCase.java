@@ -3,9 +3,13 @@ package com.backandwhite.application.usecase;
 import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.domain.model.Order;
 import com.backandwhite.domain.model.OrderStats;
+import com.backandwhite.domain.model.RevenueByDay;
+import com.backandwhite.domain.model.StatusCount;
 import com.backandwhite.domain.valueobject.OrderSagaStatus;
 import com.backandwhite.domain.valueobject.OrderStatus;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 public interface OrderUseCase {
@@ -34,4 +38,8 @@ public interface OrderUseCase {
     Order updateCjFields(String id, String cjOrderId, String trackNumber);
 
     OrderStats getStats();
+
+    List<RevenueByDay> getRevenueByDay(Instant from, Instant to);
+
+    List<StatusCount> getStatusDistribution(Instant from, Instant to);
 }
