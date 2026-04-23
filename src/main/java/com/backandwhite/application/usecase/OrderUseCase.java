@@ -13,34 +13,42 @@ import java.util.List;
 import java.util.Map;
 
 public interface OrderUseCase {
-        Order createFromCart(String userId, String sessionId, Map<String, Object> shippingAddress,
-                        Map<String, Object> billingAddress, String paymentMethod, String couponCode,
-                        String giftCardCode,
-                        BigDecimal giftCardAmount, Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount, String notes,
-                        String currencyCode, String customerLocale);
+    Order createFromCart(String userId, String sessionId, Map<String, Object> shippingAddress,
+            Map<String, Object> billingAddress, String paymentMethod, String couponCode, String giftCardCode,
+            BigDecimal giftCardAmount, Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount, String notes,
+            String currencyCode, String customerLocale);
 
-        Order confirmOrder(String orderId, String userId, String email);
+    Order confirmOrder(String orderId, String userId, String email);
 
-        Order findById(String id);
+    /**
+     * Creates a synthetic Order for a gift card purchase — one item ("Gift Card
+     * $amount · code"), status=CONFIRMED, no shipping/stock deduction — so the
+     * buyer receives a fiscal invoice via the existing invoice+email pipeline.
+     * Idempotent by externalRef (the gift card id) to survive Kafka redelivery.
+     */
+    Order createGiftCardOrder(String giftCardId, String code, String buyerId, String buyerEmail, String buyerName,
+            String amount, String currencyCode);
 
-        Order findByOrderNumber(String orderNumber);
+    Order findById(String id);
 
-        PageResult<Order> findAll(Map<String, Object> filters, int page, int size, String sortBy, boolean ascending);
+    Order findByOrderNumber(String orderNumber);
 
-        PageResult<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size, String sortBy,
-                        boolean ascending);
+    PageResult<Order> findAll(Map<String, Object> filters, int page, int size, String sortBy, boolean ascending);
 
-        Order updateStatus(String id, OrderStatus newStatus, String changedBy, String reason);
+    PageResult<Order> findByUserId(String userId, Map<String, Object> filters, int page, int size, String sortBy,
+            boolean ascending);
 
-        Order cancel(String id, String userId, String reason);
+    Order updateStatus(String id, OrderStatus newStatus, String changedBy, String reason);
 
-        Order updateSagaStatus(String id, OrderSagaStatus sagaStatus);
+    Order cancel(String id, String userId, String reason);
 
-        Order updateCjFields(String id, String cjOrderId, String trackNumber);
+    Order updateSagaStatus(String id, OrderSagaStatus sagaStatus);
 
-        OrderStats getStats();
+    Order updateCjFields(String id, String cjOrderId, String trackNumber);
 
-        List<RevenueByDay> getRevenueByDay(Instant from, Instant to);
+    OrderStats getStats();
 
-        List<StatusCount> getStatusDistribution(Instant from, Instant to);
+    List<RevenueByDay> getRevenueByDay(Instant from, Instant to);
+
+    List<StatusCount> getStatusDistribution(Instant from, Instant to);
 }

@@ -115,7 +115,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 BigDecimal itemWeight = verification.get().weight();
                 productCategoryMap.put(ci.getProductId(), categoryId);
 
-                verifiedBasePrices.put(ci, new Money[] { basePriceMoney, costPriceMoney });
+                verifiedBasePrices.put(ci, new Money[]{basePriceMoney, costPriceMoney});
                 rawSubtotal = rawSubtotal.add(basePriceMoney.multiply(ci.getQuantity()));
 
                 // Accumulate weight (M-03)
@@ -399,6 +399,105 @@ public class OrderUseCaseImpl implements OrderUseCase {
         }
 
         return confirmed;
+    }
+
+    @Override
+    @Transactional
+    public Order createGiftCardOrder(String giftCardId, String code, String buyerId, String buyerEmail,
+            String buyerName, String amount, String currencyCode) {
+        if (buyerEmail == null || buyerEmail.isBlank()) {
+            log.warn("::> Gift card {} has no buyerEmail — skipping synthetic order/invoice", giftCardId);
+            return null;
+        }
+
+        String orderNumber = giftCardOrderNumber(giftCardId);
+        // Idempotency: Kafka redelivery must not generate duplicate invoices.
+        Optional<Order> existing = orderRepository.findByOrderNumber(orderNumber);
+        if (existing.isPresent()) {
+            log.info("::> Gift card order already exists for giftCardId={} (orderNumber={})", giftCardId, orderNumber);
+            return existing.get();
+        }
+
+        Money total = Money.of(new BigDecimal(amount));
+        String currency = currencyCode != null ? currencyCode : "USD";
+
+        // order_items.product_id is NOT NULL but we have no real product for a gift
+        // card. Use the gift card id as a synthetic product id so the row is valid
+        // and the gift card can be traced from the order line.
+        OrderItem item = OrderItem.builder().productId(giftCardId)
+                .productName("Gift Card " + fmt(total) + " " + currency + " · " + code).sku("GC-" + code).quantity(1)
+                .unitPrice(total).totalPrice(total).build();
+
+        Map<String, Object> billing = new LinkedHashMap<>();
+        billing.put("fullName", buyerName != null ? buyerName : "");
+        billing.put("email", buyerEmail);
+
+        // orders.user_id is NOT NULL. Fall back to a deterministic guest marker
+        // derived from the gift card id so every synthetic order has a stable owner.
+        String ownerId = (buyerId != null && !buyerId.isBlank()) ? buyerId : "guest-gc-" + giftCardId;
+        Order order = Order.builder().orderNumber(orderNumber).userId(ownerId).status(OrderStatus.CONFIRMED)
+                .sagaStatus(OrderSagaStatus.COMPLETED).subtotal(total).shippingCost(Money.zero())
+                .taxAmount(Money.zero()).discountAmount(Money.zero()).total(total).giftCardAmount(Money.zero())
+                .loyaltyPointsUsed(0).loyaltyDiscount(Money.zero()).campaignDiscountTotal(Money.zero())
+                .exchangeRateToUsd(BigDecimal.ONE).giftCardCode(code).paymentMethod("gift_card_purchase")
+                .currencyCode(currency).billingAddress(billing).shippingAddress(billing).items(List.of(item))
+                .notes("Auto-generated for gift card purchase").paymentRef("gift-card:" + giftCardId).build();
+
+        Order saved = orderRepository.save(order);
+
+        OrderStatusHistory history = OrderStatusHistory.builder().orderId(saved.getId())
+                .fromStatus(OrderStatus.DRAFT.name()).toStatus(OrderStatus.CONFIRMED.name()).changedBy("SYSTEM")
+                .reason("Gift card purchased — synthetic order for invoicing").changedAt(Instant.now()).build();
+        orderRepository.addStatusHistory(history);
+
+        // Build + persist invoice.
+        Invoice invoice = null;
+        try {
+            Map<String, Object> customerSnapshot = new LinkedHashMap<>();
+            customerSnapshot.put("name", buyerName != null ? buyerName : "");
+            customerSnapshot.put("email", buyerEmail);
+            customerSnapshot.put("address", "");
+            customerSnapshot.put("phone", "");
+
+            Map<String, Object> line = new LinkedHashMap<>();
+            line.put("name", item.getProductName());
+            line.put("sku", item.getSku());
+            line.put("quantity", 1);
+            line.put("unitPrice", total.getAmount());
+            line.put("total", total.getAmount());
+
+            invoice = Invoice.builder().invoiceNumber(generateInvoiceNumber()).orderId(saved.getId())
+                    .status(InvoiceStatus.PAID).issueDate(LocalDate.now()).dueDate(LocalDate.now()).subtotal(total)
+                    .shipping(Money.zero()).tax(Money.zero()).total(total).discountAmount(Money.zero())
+                    .giftCardAmount(Money.zero()).loyaltyDiscount(Money.zero()).paymentMethod("gift_card_purchase")
+                    .currencyCode(currency).customerSnapshot(customerSnapshot).lines(List.of(line)).notes(null).build();
+            invoiceUseCase.create(invoice);
+            log.info("::> Invoice {} created for gift card order {}", invoice.getInvoiceNumber(), orderNumber);
+        } catch (Exception e) {
+            log.warn("::> Failed to create invoice for gift card order {}: {}", orderNumber, e.getMessage());
+        }
+
+        if (invoice != null) {
+            try {
+                orderEventPort.publishInvoiceEmail(buyerEmail, "Factura de tu tarjeta regalo " + orderNumber,
+                        "order-invoice", buildInvoiceEmailVars(saved, invoice));
+                log.info("::> Invoice email event published for gift card order {} to {}", orderNumber, buyerEmail);
+            } catch (Exception e) {
+                log.warn("::> Failed to publish invoice email for gift card order {}: {}", orderNumber, e.getMessage());
+            }
+        }
+        return saved;
+    }
+
+    /**
+     * Stable 8-char suffix derived from the gift card id so Kafka redelivery of the
+     * same purchase event resolves to the same Order (via findByOrderNumber).
+     */
+    private String giftCardOrderNumber(String giftCardId) {
+        String suffix = giftCardId != null && giftCardId.length() >= 8
+                ? giftCardId.substring(0, 8).toUpperCase()
+                : String.valueOf(giftCardId);
+        return "GC-" + suffix;
     }
 
     @Override
