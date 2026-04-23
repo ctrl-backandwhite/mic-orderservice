@@ -64,7 +64,9 @@ public class OrderEventConsumerService {
                 return;
             }
 
-            // Submit to CJ Dropshipping only if reconciliation passed
+            // Submit to CJ Dropshipping only if reconciliation passed. The use
+            // case itself honours app.cj.enabled and short-circuits when the
+            // feature flag is off, so we don't need to gate again here.
             try {
                 cjOrderFulfillmentUseCase.submitOrderToCj(orderId);
             } catch (Exception cjEx) {
