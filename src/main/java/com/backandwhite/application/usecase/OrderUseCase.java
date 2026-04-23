@@ -27,7 +27,7 @@ public interface OrderUseCase {
      * Idempotent by externalRef (the gift card id) to survive Kafka redelivery.
      */
     Order createGiftCardOrder(String giftCardId, String code, String buyerId, String buyerEmail, String buyerName,
-            String amount, String currencyCode);
+            String amount, String currencyCode, String recipientName, String recipientEmail, String message);
 
     Order findById(String id);
 

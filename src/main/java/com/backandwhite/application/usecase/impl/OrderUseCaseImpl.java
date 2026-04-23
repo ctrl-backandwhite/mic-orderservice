@@ -404,7 +404,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional
     public Order createGiftCardOrder(String giftCardId, String code, String buyerId, String buyerEmail,
-            String buyerName, String amount, String currencyCode) {
+            String buyerName, String amount, String currencyCode, String recipientName, String recipientEmail,
+            String message) {
         if (buyerEmail == null || buyerEmail.isBlank()) {
             log.warn("::> Gift card {} has no buyerEmail — skipping synthetic order/invoice", giftCardId);
             return null;
@@ -479,8 +480,17 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         if (invoice != null) {
             try {
+                Map<String, String> vars = buildInvoiceEmailVars(saved, invoice);
+                // Gift-card specific block — the template renders the gift card
+                // visual + code + recipient whenever these vars are non-empty.
+                vars.put("giftCardCode", code != null ? code : "");
+                vars.put("giftCardAmountDisplay", fmt(total) + " " + currency);
+                vars.put("giftCardRecipientName", recipientName != null ? recipientName : "");
+                vars.put("giftCardRecipientEmail", recipientEmail != null ? recipientEmail : "");
+                vars.put("giftCardMessage", message != null ? message : "");
+                vars.put("giftCardIncluded", "true");
                 orderEventPort.publishInvoiceEmail(buyerEmail, "Factura de tu tarjeta regalo " + orderNumber,
-                        "order-invoice", buildInvoiceEmailVars(saved, invoice));
+                        "order-invoice", vars);
                 log.info("::> Invoice email event published for gift card order {} to {}", orderNumber, buyerEmail);
             } catch (Exception e) {
                 log.warn("::> Failed to publish invoice email for gift card order {}: {}", orderNumber, e.getMessage());

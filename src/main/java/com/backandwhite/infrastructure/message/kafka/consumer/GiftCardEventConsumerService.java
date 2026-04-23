@@ -30,7 +30,8 @@ public class GiftCardEventConsumerService {
                 str(event.getCode()), buyerEmail);
         try {
             orderUseCase.createGiftCardOrder(giftCardId, str(event.getCode()), str(event.getBuyerId()), buyerEmail,
-                    str(event.getBuyerName()), str(event.getAmount()), str(event.getCurrency()));
+                    str(event.getBuyerName()), str(event.getAmount()), str(event.getCurrency()),
+                    str(event.getRecipientName()), str(event.getRecipientEmail()), str(event.getMessage()));
         } catch (Exception e) {
             log.error("::> Failed processing giftcard.purchased for giftCardId={}: {}", giftCardId, e.getMessage(), e);
         }
