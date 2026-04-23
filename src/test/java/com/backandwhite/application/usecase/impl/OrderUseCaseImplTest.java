@@ -142,9 +142,8 @@ class OrderUseCaseImplTest {
 
     @Test
     void createFromCart_missingShippingAddress_throws() {
-        assertThatThrownBy(
-                () -> useCase.createFromCart("u1", null, null, null, "card", null, null, null, null, null, null, "USD", null))
-                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> useCase.createFromCart("u1", null, null, null, "card", null, null, null, null, null,
+                null, "USD", null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -405,8 +404,8 @@ class OrderUseCaseImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Map<String, Object> addr = validAddress();
-        Order result = useCase.createFromCart("u1", null, addr, null, "card", null, null, null, null, null, null,
-                "USD", null);
+        Order result = useCase.createFromCart("u1", null, addr, null, "card", null, null, null, null, null, null, "USD",
+                null);
         assertThat(result.getBillingAddress()).isEqualTo(addr);
     }
 

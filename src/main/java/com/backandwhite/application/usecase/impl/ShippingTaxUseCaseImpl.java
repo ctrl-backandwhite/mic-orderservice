@@ -168,8 +168,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
         }
 
         // Filter out zero/negative rates so they don't shadow the default fallback
-        List<TaxRule> effectiveRules = rules.stream()
-                .filter(r -> r.getRate() != null && r.getRate().signum() > 0)
+        List<TaxRule> effectiveRules = rules.stream().filter(r -> r.getRate() != null && r.getRate().signum() > 0)
                 .toList();
 
         if (effectiveRules.isEmpty()) {
