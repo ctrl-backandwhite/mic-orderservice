@@ -1,6 +1,7 @@
 package com.backandwhite.infrastructure.client;
 
 import com.backandwhite.application.port.out.CmsPort;
+import com.backandwhite.common.constants.AppConstants;
 import com.backandwhite.common.domain.valueobject.Money;
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -22,8 +23,12 @@ public class CmsClient implements CmsPort {
 
     private final RestClient restClient;
 
-    public CmsClient(@Value("${services.cmsservice.url:http://localhost:6006}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    public CmsClient(@Value("${services.cms.url:http://localhost:6006}") String baseUrl) {
+        // Inter-service calls bypass the gateway, so the gateway-issued
+        // X-nx036-auth header is set by hand. NxRequestFilter on the CMS side
+        // rejects /api/** without it.
+        this.restClient = RestClient.builder().baseUrl(baseUrl).defaultHeader(AppConstants.HEADER_NX036_AUTH, "service")
+                .build();
     }
 
     /**

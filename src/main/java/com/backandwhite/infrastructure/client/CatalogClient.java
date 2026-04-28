@@ -1,6 +1,7 @@
 package com.backandwhite.infrastructure.client;
 
 import com.backandwhite.application.port.out.CatalogPort;
+import com.backandwhite.common.constants.AppConstants;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +23,11 @@ public class CatalogClient implements CatalogPort {
     private final RestClient restClient;
 
     public CatalogClient(@Value("${services.productcategory.url:http://localhost:6002}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        // Inter-service calls bypass the gateway, so the gateway-issued
+        // X-nx036-auth header is set by hand. NxRequestFilter on the catalog
+        // side rejects /api/** without it.
+        this.restClient = RestClient.builder().baseUrl(baseUrl).defaultHeader(AppConstants.HEADER_NX036_AUTH, "service")
+                .build();
     }
 
     /**

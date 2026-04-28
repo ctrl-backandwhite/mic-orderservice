@@ -58,8 +58,8 @@ cj-dropshipping:
 services:
     productcategory:
         url: ${SERVICES_PRODUCTCATEGORY_URL:http://localhost:6002}
-    cmsservice:
-        url: ${SERVICES_CMSSERVICE_URL:http://localhost:6006}
+    cms:
+        url: ${SERVICES_CMS_URL:http://localhost:6006}
 
 management:
     tracing:

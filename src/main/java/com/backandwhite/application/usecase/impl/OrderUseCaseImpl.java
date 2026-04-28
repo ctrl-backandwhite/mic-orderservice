@@ -237,26 +237,14 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         Money total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount).floor();
 
-        // 4.5 Multi-currency: fetch exchange rate and convert totals
-        // NOTE: Price verification (step 1.5) already corrected cart prices to USD.
-        // We must convert USD → target currency here (single conversion).
-        String resolvedCurrency = (currencyCode != null && !currencyCode.isBlank())
-                ? currencyCode.toUpperCase()
-                : "USD";
+        // 4.5 Orders are always settled in USD — products sync from CJ in USD,
+        // and the storefront converts to local currency only for display. The
+        // payment gateway receives the USD equivalent, the order ledger stays
+        // canonical. The user's display preference (currencyCode/customerLocale)
+        // doesn't change what we charge.
+        String resolvedCurrency = "USD";
         BigDecimal exchangeRate = BigDecimal.ONE;
         BigDecimal exchangeRateToUsd = BigDecimal.ONE;
-
-        if (!"USD".equals(resolvedCurrency)) {
-            exchangeRate = cmsClient.getExchangeRate(resolvedCurrency);
-            if (exchangeRate.compareTo(BigDecimal.ZERO) > 0 && exchangeRate.compareTo(BigDecimal.ONE) != 0) {
-                exchangeRateToUsd = BigDecimal.ONE.divide(exchangeRate, 8, java.math.RoundingMode.HALF_UP);
-                subtotal = subtotal.multiply(exchangeRate);
-                shippingCost = shippingCost.multiply(exchangeRate);
-                taxAmount = taxAmount.multiply(exchangeRate);
-                discountAmount = discountAmount.multiply(exchangeRate);
-                total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount).floor();
-            }
-        }
 
         // 5. Build order items from cart items
         // Cart prices were corrected to USD in step 1.5; now convert to target
