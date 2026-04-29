@@ -81,6 +81,9 @@ public class InvoiceEntity extends AuditableEntity {
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
 
+    @Column(name = "currency_code", length = 3)
+    private String currencyCode;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "customer_snapshot", nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> customerSnapshot;

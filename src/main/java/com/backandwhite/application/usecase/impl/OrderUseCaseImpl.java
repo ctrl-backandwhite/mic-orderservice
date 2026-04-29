@@ -237,14 +237,38 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         Money total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount).floor();
 
-        // 4.5 Orders are always settled in USD — products sync from CJ in USD,
-        // and the storefront converts to local currency only for display. The
-        // payment gateway receives the USD equivalent, the order ledger stays
-        // canonical. The user's display preference (currencyCode/customerLocale)
-        // doesn't change what we charge.
-        String resolvedCurrency = "USD";
+        // 4.5 Multi-currency: convert every line to the buyer's display
+        // currency so the saved order, the rendered invoice and the order
+        // tracker all show the same numbers the buyer agreed to at checkout.
+        // The payment service converts back to USD before talking to Stripe
+        // (CARD/PAYPAL settlement currency is USD), but the canonical record
+        // stays in the user's currency. Cart prices were already normalised
+        // to USD by the price-verification pass at step 1.5, so this is a
+        // single uniform multiply.
+        String resolvedCurrency = (currencyCode != null && !currencyCode.isBlank())
+                ? currencyCode.toUpperCase()
+                : "USD";
         BigDecimal exchangeRate = BigDecimal.ONE;
         BigDecimal exchangeRateToUsd = BigDecimal.ONE;
+
+        if (!"USD".equals(resolvedCurrency)) {
+            exchangeRate = cmsClient.getExchangeRate(resolvedCurrency);
+            if (exchangeRate.compareTo(BigDecimal.ZERO) > 0 && exchangeRate.compareTo(BigDecimal.ONE) != 0) {
+                exchangeRateToUsd = BigDecimal.ONE.divide(exchangeRate, 8, java.math.RoundingMode.HALF_UP);
+                subtotal = subtotal.multiply(exchangeRate);
+                shippingCost = shippingCost.multiply(exchangeRate);
+                taxAmount = taxAmount.multiply(exchangeRate);
+                discountAmount = discountAmount.multiply(exchangeRate);
+                total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount).floor();
+            } else {
+                // Rate fetch failed — treat the order as USD so we never
+                // silently undercharge the buyer in a currency the gateway
+                // can't reconcile.
+                resolvedCurrency = "USD";
+                exchangeRate = BigDecimal.ONE;
+                exchangeRateToUsd = BigDecimal.ONE;
+            }
+        }
 
         // 5. Build order items from cart items
         // Cart prices were corrected to USD in step 1.5; now convert to target

@@ -59,6 +59,9 @@ public class InvoiceDtoOut {
     @Schema(description = "Método de pago")
     private String paymentMethod;
 
+    @Schema(description = "Código ISO de la moneda en la que se emitió la factura", example = "COP")
+    private String currencyCode;
+
     @Schema(description = "Datos del cliente")
     private Map<String, Object> customerSnapshot;
 
