@@ -38,8 +38,11 @@ public class ShippingRuleDtoIn {
     @Schema(description = "Tarifa de envío", example = "9.99")
     private BigDecimal rate;
 
-    @Schema(description = "Envío gratis a partir de este monto", example = "100.00")
+    @Schema(description = "Envío gratis a partir de este monto", example = "120.00")
     private BigDecimal freeAbove;
+
+    @Schema(description = "Peso máximo (kg) que califica para envío gratis. Sobre este peso la regla cobra la tarifa completa aunque el subtotal supere freeAbove. Null = sin tope de peso.", example = "15.00")
+    private BigDecimal freeAboveMaxWeight;
 
     @Schema(description = "Días estimados de entrega", example = "5")
     private Integer estimatedDays;

@@ -36,7 +36,9 @@ public class CatalogClient implements CatalogPort {
      * Otherwise, returns the product's base sell price.
      */
     @Override
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "java:S3776"}) // Catalog adaptor: parses a polymorphic JSON shape (locale-fallback
+                                                   // prices, optional variant override, several legacy field names); a
+                                                   // flat structure mirrors the upstream contract.
     public Optional<ProductVerification> getVerifiedPriceAndCategory(String productId, String variantId) {
         try {
             Map<String, Object> product = restClient.get().uri("/api/v1/products/{id}?locale=en", productId).retrieve()
@@ -59,9 +61,17 @@ public class CatalogClient implements CatalogPort {
                             Object retail = v.get("retailPrice");
                             // variantSellPrice = supplier cost (CJ)
                             Object cost = v.get("variantSellPrice");
+                            // variantWeight from CJ Dropshipping is reported in
+                            // grams. Convert to kilograms here to match the unit
+                            // shipping_rules.{min,max}_weight uses (kg) and the
+                            // unit the storefront displays (kg). Without this
+                            // conversion a 380 g t-shirt blew past every 30 kg
+                            // cap and pushed orders to the default flat-rate
+                            // fallback.
                             Object weight = v.get("variantWeight");
                             BigDecimal variantWeight = weight != null
-                                    ? new BigDecimal(weight.toString())
+                                    ? new BigDecimal(weight.toString()).divide(java.math.BigDecimal.valueOf(1000), 3,
+                                            java.math.RoundingMode.HALF_UP)
                                     : BigDecimal.ZERO;
                             if (retail != null) {
                                 BigDecimal retailPrice = new BigDecimal(retail.toString());

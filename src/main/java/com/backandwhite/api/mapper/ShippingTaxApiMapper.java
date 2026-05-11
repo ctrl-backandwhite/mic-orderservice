@@ -26,8 +26,19 @@ public interface ShippingTaxApiMapper {
     @Mapping(target = "active", expression = "java(dto.isActive())")
     ShippingCarrier toCarrierDomain(ShippingCarrierDtoIn dto);
 
+    // Domain uses {minWeight, maxWeight, minPrice, maxPrice} but the
+    // outbound DTO renames them to {weightMin, weightMax, priceMin, priceMax}
+    // for the public API. Without these explicit mappings MapStruct can't
+    // auto-bridge the rename, so the admin UI was getting null weight ranges
+    // and falling back to 30 kg defaults — making rule edits look broken.
+    @Mapping(source = "minWeight", target = "weightMin")
+    @Mapping(source = "maxWeight", target = "weightMax")
+    @Mapping(source = "minPrice", target = "priceMin")
+    @Mapping(source = "maxPrice", target = "priceMax")
     ShippingRuleDtoOut toRuleDto(ShippingRule rule);
 
+    // List delegate — MapStruct automatically uses toRuleDto for each element,
+    // inheriting the mappings declared above.
     List<ShippingRuleDtoOut> toRuleDtoList(List<ShippingRule> rules);
 
     @Mapping(target = "id", ignore = true)

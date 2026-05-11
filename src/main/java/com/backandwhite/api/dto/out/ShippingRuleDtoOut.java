@@ -40,6 +40,9 @@ public class ShippingRuleDtoOut {
     @Schema(description = "Envío gratis a partir de")
     private BigDecimal freeAbove;
 
+    @Schema(description = "Peso máximo (kg) para aplicar envío gratis", example = "15.00")
+    private BigDecimal freeAboveMaxWeight;
+
     @Schema(description = "Días estimados")
     private Integer estimatedDays;
 

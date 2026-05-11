@@ -20,6 +20,13 @@ public class ShippingRule {
     private Money maxPrice;
     private Money rate;
     private Money freeAbove;
+    /**
+     * Maximum weight (kg) at which the {@link #freeAbove} threshold still grants
+     * free shipping. Above this weight the rule charges the full {@link #rate}
+     * regardless of the order subtotal — protects the margin on bulky shipments.
+     * Null = no weight cap on the free-shipping promo.
+     */
+    private BigDecimal freeAboveMaxWeight;
     private int estimatedDays;
     @Builder.Default
     private boolean active = true;

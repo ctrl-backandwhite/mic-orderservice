@@ -54,6 +54,9 @@ public class ShippingRuleEntity extends AuditableEntity {
     @Column(name = "free_above", precision = 12, scale = 2)
     private Money freeAbove;
 
+    @Column(name = "free_above_max_weight", precision = 10, scale = 2)
+    private BigDecimal freeAboveMaxWeight;
+
     @Column(name = "estimated_days", nullable = false)
     private int estimatedDays;
 

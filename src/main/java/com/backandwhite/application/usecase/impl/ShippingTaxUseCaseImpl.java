@@ -26,6 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
 
+    private static final String ENTITY_SHIPPING_CARRIER = "ShippingCarrier";
+    private static final String ENTITY_SHIPPING_RULE = "ShippingRule";
+    private static final String ENTITY_TAX_RULE = "TaxRule";
+
     private final ShippingCarrierRepository carrierRepository;
     private final ShippingRuleRepository ruleRepository;
     private final TaxRuleRepository taxRuleRepository;
@@ -40,7 +44,8 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public ShippingCarrier updateCarrier(String id, ShippingCarrier carrier) {
-        carrierRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingCarrier", id));
+        carrierRepository.findById(id)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_SHIPPING_CARRIER, id));
         carrier.setId(id);
         return carrierRepository.update(carrier);
     }
@@ -49,7 +54,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Transactional(readOnly = true)
     public ShippingCarrier findCarrierById(String id) {
         return carrierRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingCarrier", id));
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_SHIPPING_CARRIER, id));
     }
 
     @Override
@@ -63,7 +68,8 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public void deleteCarrier(String id) {
-        carrierRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingCarrier", id));
+        carrierRepository.findById(id)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_SHIPPING_CARRIER, id));
         carrierRepository.delete(id);
     }
 
@@ -77,7 +83,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public ShippingRule updateRule(String id, ShippingRule rule) {
-        ruleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingRule", id));
+        ruleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_SHIPPING_RULE, id));
         rule.setId(id);
         return ruleRepository.update(rule);
     }
@@ -85,7 +91,8 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional(readOnly = true)
     public ShippingRule findRuleById(String id) {
-        return ruleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingRule", id));
+        return ruleRepository.findById(id)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_SHIPPING_RULE, id));
     }
 
     @Override
@@ -100,23 +107,49 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Transactional(readOnly = true)
     public List<ShippingRule> findShippingOptions(String country, BigDecimal weight, Money subtotal) {
         List<String> zones = resolveZones(country);
-        return zones.stream().flatMap(zone -> ruleRepository.findOptions(zone, weight, subtotal).stream()).toList();
+        log.info("::> findShippingOptions country='{}' resolved zones={} weight={} subtotal={}", country, zones, weight,
+                subtotal.getAmount());
+        List<ShippingRule> result = zones.stream()
+                .flatMap(zone -> ruleRepository.findOptions(zone, weight, subtotal).stream()).toList();
+        log.info("::> findShippingOptions returning {} options", result.size());
+        return result;
     }
 
     /**
      * Resolve country code to zone identifier used in shipping_rules.zone. Zones
-     * now store the ISO 3166-1 alpha-2 country code directly.
+     * store the ISO 3166-1 alpha-2 code, but callers (e.g. orders) sometimes pass
+     * the human display name ("España", "United States"). This helper accepts both:
+     * 2-letter input is taken as-is, anything else is matched against display names
+     * in es/en/pt locales so a Spanish-speaking user typing "España" still hits the
+     * ES rules.
      */
     private List<String> resolveZones(String countryCode) {
         if (countryCode == null || countryCode.isBlank())
             return List.of();
-        return List.of(countryCode.toUpperCase());
+        String trimmed = countryCode.trim();
+        if (trimmed.length() == 2) {
+            return List.of(trimmed.toUpperCase());
+        }
+        String iso = nameToIso(trimmed);
+        return iso != null ? List.of(iso) : List.of(trimmed.toUpperCase());
+    }
+
+    private String nameToIso(String displayName) {
+        for (String iso : java.util.Locale.getISOCountries()) {
+            java.util.Locale loc = java.util.Locale.of("", iso);
+            if (loc.getDisplayCountry(java.util.Locale.ENGLISH).equalsIgnoreCase(displayName)
+                    || loc.getDisplayCountry(java.util.Locale.of("es")).equalsIgnoreCase(displayName)
+                    || loc.getDisplayCountry(java.util.Locale.of("pt")).equalsIgnoreCase(displayName)) {
+                return iso;
+            }
+        }
+        return null;
     }
 
     @Override
     @Transactional
     public void deleteRule(String id) {
-        ruleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("ShippingRule", id));
+        ruleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_SHIPPING_RULE, id));
         ruleRepository.delete(id);
     }
 
@@ -130,7 +163,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public TaxRule updateTaxRule(String id, TaxRule rule) {
-        taxRuleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("TaxRule", id));
+        taxRuleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_TAX_RULE, id));
         rule.setId(id);
         return taxRuleRepository.update(rule);
     }
@@ -138,7 +171,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional(readOnly = true)
     public TaxRule findTaxRuleById(String id) {
-        return taxRuleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("TaxRule", id));
+        return taxRuleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_TAX_RULE, id));
     }
 
     @Override
@@ -154,12 +187,22 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional(readOnly = true)
     public Money calculateTax(String country, String region, Money subtotal) {
+        // Normalise display names ("España", "Spain") to ISO so admins can
+        // configure tax_rules.country with the canonical 2-letter code and
+        // still hit them when the order's address has the localized name.
+        String normalisedCountry = country;
+        if (country != null && country.length() != 2) {
+            String iso = nameToIso(country.trim());
+            if (iso != null)
+                normalisedCountry = iso;
+        }
+
         // 1. Try exact country + region
-        List<TaxRule> rules = taxRuleRepository.findByCountryAndRegion(country, region);
+        List<TaxRule> rules = taxRuleRepository.findByCountryAndRegion(normalisedCountry, region);
 
         // 2. Fallback: country only (blank region)
         if (rules.isEmpty() && region != null && !region.isBlank()) {
-            rules = taxRuleRepository.findByCountryAndRegion(country, null);
+            rules = taxRuleRepository.findByCountryAndRegion(normalisedCountry, null);
         }
 
         // 3. Default 10 % when no rules are configured
@@ -195,7 +238,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     @Override
     @Transactional
     public void deleteTaxRule(String id) {
-        taxRuleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("TaxRule", id));
+        taxRuleRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_TAX_RULE, id));
         taxRuleRepository.delete(id);
     }
 }

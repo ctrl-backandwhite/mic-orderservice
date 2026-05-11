@@ -47,7 +47,16 @@ public class ShippingRuleRepositoryImpl implements ShippingRuleRepository {
     public List<ShippingRule> findOptions(String country, BigDecimal weight, Money subtotal) {
         return jpa.findApplicableRules(country, weight, subtotal.getAmount()).stream().map(entity -> {
             ShippingRule rule = mapper.toRuleDomain(entity);
-            if (rule.getFreeAbove() != null && subtotal.isGreaterThanOrEqual(rule.getFreeAbove())) {
+            // Free-shipping promo applies when the order subtotal hits the
+            // threshold AND the shipment isn't above the configured weight
+            // cap. The weight cap (free_above_max_weight) is per-rule so
+            // bulky-package carriers can opt out of granting the discount.
+            // A null cap means "no weight limit" — promo applies on subtotal
+            // alone.
+            boolean meetsSubtotal = rule.getFreeAbove() != null && subtotal.isGreaterThanOrEqual(rule.getFreeAbove());
+            boolean withinWeightCap = rule.getFreeAboveMaxWeight() == null
+                    || weight.compareTo(rule.getFreeAboveMaxWeight()) <= 0;
+            if (meetsSubtotal && withinWeightCap) {
                 rule.setRate(Money.zero());
             }
             return rule;
