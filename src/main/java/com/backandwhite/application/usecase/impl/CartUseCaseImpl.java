@@ -18,11 +18,17 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CartUseCaseImpl implements CartUseCase {
 
+    private static final String CART_NOT_FOUND_CODE = "NF001";
+
     private final CartRepository cartRepository;
 
     @Override
     @Transactional(readOnly = true)
     public Cart getActiveCart(String userId, String sessionId) {
+        return getActiveCartInternal(userId, sessionId);
+    }
+
+    private Cart getActiveCartInternal(String userId, String sessionId) {
         Optional<Cart> cart = (userId != null)
                 ? cartRepository.findActiveByUserId(userId)
                 : cartRepository.findActiveBySessionId(sessionId);
@@ -32,6 +38,10 @@ public class CartUseCaseImpl implements CartUseCase {
     @Override
     @Transactional
     public Cart getOrCreateCart(String userId, String sessionId) {
+        return getOrCreateCartInternal(userId, sessionId);
+    }
+
+    private Cart getOrCreateCartInternal(String userId, String sessionId) {
         Optional<Cart> existing = (userId != null)
                 ? cartRepository.findActiveByUserId(userId)
                 : cartRepository.findActiveBySessionId(sessionId);
@@ -46,7 +56,14 @@ public class CartUseCaseImpl implements CartUseCase {
     @Override
     @Transactional
     public Cart addItem(String userId, String sessionId, CartItem item) {
-        Cart cart = getOrCreateCart(userId, sessionId);
+        // Reject zero / negative quantities at the cart layer so the order
+        // pipeline never gets a chance to misinterpret a sentinel (a 0-qty
+        // item silently passes the available >= qty check).
+        if (item.getQuantity() <= 0) {
+            throw new IllegalArgumentException(
+                    "Cart item quantity must be at least 1 (got " + item.getQuantity() + ")");
+        }
+        Cart cart = getOrCreateCartInternal(userId, sessionId);
 
         Optional<CartItem> existing = cartRepository.findItemByCartAndProduct(cart.getId(), item.getProductId(),
                 item.getVariantId());
@@ -66,13 +83,17 @@ public class CartUseCaseImpl implements CartUseCase {
     @Override
     @Transactional
     public Cart updateItemQuantity(String itemId, int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException(
+                    "Cart item quantity must be at least 1 (got " + quantity + "); to remove the item use removeItem");
+        }
         CartItem item = cartRepository.findItemById(itemId)
-                .orElseThrow(() -> new com.backandwhite.common.exception.EntityNotFoundException("NF001",
+                .orElseThrow(() -> new com.backandwhite.common.exception.EntityNotFoundException(CART_NOT_FOUND_CODE,
                         "CartItem with id " + itemId + " is not found."));
         item.setQuantity(quantity);
         cartRepository.updateItem(item);
         return cartRepository.findById(item.getCartId())
-                .orElseThrow(() -> new com.backandwhite.common.exception.EntityNotFoundException("NF001",
+                .orElseThrow(() -> new com.backandwhite.common.exception.EntityNotFoundException(CART_NOT_FOUND_CODE,
                         "Cart not found for item " + itemId));
     }
 
@@ -80,7 +101,7 @@ public class CartUseCaseImpl implements CartUseCase {
     @Transactional
     public Cart removeItem(String userId, String sessionId, String itemId) {
         CartItem item = cartRepository.findItemById(itemId)
-                .orElseThrow(() -> new com.backandwhite.common.exception.EntityNotFoundException("NF001",
+                .orElseThrow(() -> new com.backandwhite.common.exception.EntityNotFoundException(CART_NOT_FOUND_CODE,
                         "CartItem with id " + itemId + " is not found."));
         String cartId = item.getCartId();
         cartRepository.removeItem(itemId);
@@ -101,7 +122,7 @@ public class CartUseCaseImpl implements CartUseCase {
     @Transactional
     public Cart mergeCart(String userId, String sessionId) {
         if (userId == null || sessionId == null) {
-            return getActiveCart(userId, sessionId);
+            return getActiveCartInternal(userId, sessionId);
         }
 
         Optional<Cart> anonCart = cartRepository.findActiveBySessionId(sessionId);

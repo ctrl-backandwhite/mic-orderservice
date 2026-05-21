@@ -29,6 +29,9 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/tracking")
 @Tag(name = "Tracking", description = "Endpoints para tracking de pedidos")
 public class TrackingController {
+    private static final String KEY_TRACK_NUMBER = "trackNumber";
+    private static final String KEY_MESSAGE = "message";
+
     private final TrackingUseCase trackingUseCase;
     private final TrackingApiMapper trackingApiMapper;
     private final CjShoppingPort cjShoppingPort;
@@ -48,18 +51,20 @@ public class TrackingController {
     @GetMapping("/orders/{orderId}/cj")
     @Operation(summary = "Rich CJ tracking for an order", description = "Fetches live tracking information from CJ Dropshipping API using "
             + "the track number stored on the CJ order.")
+    @SuppressWarnings("java:S6863") // Tracking lookup is degraded-on-failure: returns 200 OK with a user-friendly
+                                    // message body.
     public ResponseEntity<Map<String, Object>> getCjTracking(
             @RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth, @PathVariable String orderId) {
         return cjOrderRepository.findByOrderId(orderId).map(cjOrder -> {
             String trackNumber = cjOrder.getTrackNumber();
             if (trackNumber == null || trackNumber.isBlank()) {
-                return ResponseEntity
-                        .ok(Map.<String, Object>of("trackNumber", "", "message", "Order has not been shipped yet"));
+                return ResponseEntity.ok(
+                        Map.<String, Object>of(KEY_TRACK_NUMBER, "", KEY_MESSAGE, "Order has not been shipped yet"));
             }
             try {
                 CjTrackInfo info = cjShoppingPort.getTrackInfo(trackNumber);
                 if (info == null) {
-                    return ResponseEntity.ok(Map.<String, Object>of("trackNumber", trackNumber, "message",
+                    return ResponseEntity.ok(Map.<String, Object>of(KEY_TRACK_NUMBER, trackNumber, KEY_MESSAGE,
                             "No tracking data available yet"));
                 }
                 return ResponseEntity.<Map<String, Object>>ok(Map.of("trackingNumber", info.getTrackingNumber(),
@@ -71,10 +76,10 @@ public class TrackingController {
                         nullSafe(info.getLastTrackNumber())));
             } catch (Exception e) {
                 log.warn("CJ tracking lookup failed for orderId={}: {}", orderId, e.getMessage());
-                return ResponseEntity.ok(Map.<String, Object>of("trackNumber", trackNumber, "message",
+                return ResponseEntity.ok(Map.<String, Object>of(KEY_TRACK_NUMBER, trackNumber, KEY_MESSAGE,
                         "Tracking lookup temporary unavailable"));
             }
-        }).orElse(ResponseEntity.ok(Map.of("message", "CJ order not found for orderId: " + orderId)));
+        }).orElse(ResponseEntity.ok(Map.of(KEY_MESSAGE, "CJ order not found for orderId: " + orderId)));
     }
 
     @NxAdmin

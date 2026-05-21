@@ -47,4 +47,58 @@ class PiiEncryptionServiceTest {
         method.invoke(service);
         return service;
     }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("encrypt returns input unchanged when plaintext is null or empty")
+    void encryptShortCircuitsOnNullEmpty() throws Exception {
+        PiiEncryptionService service = instantiate(Base64.getEncoder().encodeToString(new byte[32]));
+        org.assertj.core.api.Assertions.assertThat(service.encrypt(null)).isNull();
+        org.assertj.core.api.Assertions.assertThat(service.encrypt("")).isEmpty();
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("decrypt returns input unchanged when ciphertext is null or empty")
+    void decryptShortCircuitsOnNullEmpty() throws Exception {
+        PiiEncryptionService service = instantiate(Base64.getEncoder().encodeToString(new byte[32]));
+        org.assertj.core.api.Assertions.assertThat(service.decrypt(null)).isNull();
+        org.assertj.core.api.Assertions.assertThat(service.decrypt("")).isEmpty();
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("decrypt returns input untouched when not prefixed with 'enc:'")
+    void decryptWithoutPrefix() throws Exception {
+        PiiEncryptionService service = instantiate(Base64.getEncoder().encodeToString(new byte[32]));
+        org.assertj.core.api.Assertions.assertThat(service.decrypt("plain-text-no-prefix"))
+                .isEqualTo("plain-text-no-prefix");
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("decrypt returns null when key is missing but ciphertext has 'enc:' prefix")
+    void decryptDisabledOnEncrypted() throws Exception {
+        PiiEncryptionService service = instantiate("");
+        org.assertj.core.api.Assertions.assertThat(service.decrypt("enc:something")).isNull();
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("decrypt wraps cipher errors as IllegalStateException for malformed payloads")
+    void decryptThrowsOnMalformed() throws Exception {
+        PiiEncryptionService service = instantiate(Base64.getEncoder().encodeToString(new byte[32]));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.decrypt("enc:not-valid-base64!!!"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("decryption failed");
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("init throws IllegalStateException when key is not 32 bytes")
+    void initRejectsBadKey() {
+        org.assertj.core.api.Assertions
+                .assertThatThrownBy(() -> instantiate(Base64.getEncoder().encodeToString(new byte[16])))
+                .hasRootCauseInstanceOf(IllegalStateException.class);
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("isEnabled returns true when a valid key is configured")
+    void isEnabledTrue() throws Exception {
+        PiiEncryptionService service = instantiate(Base64.getEncoder().encodeToString(new byte[32]));
+        org.assertj.core.api.Assertions.assertThat(service.isEnabled()).isTrue();
+    }
 }

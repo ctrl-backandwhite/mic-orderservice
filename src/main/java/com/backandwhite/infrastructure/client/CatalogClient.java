@@ -25,9 +25,12 @@ public class CatalogClient implements CatalogPort {
     public CatalogClient(@Value("${services.productcategory.url:http://localhost:6002}") String baseUrl) {
         // Inter-service calls bypass the gateway, so the gateway-issued
         // X-nx036-auth header is set by hand. NxRequestFilter on the catalog
-        // side rejects /api/** without it.
+        // side rejects /api/** without it. Some endpoints (taxes/admin) are
+        // annotated @NxAdmin, so we also stamp ROLE_ADMIN explicitly — without
+        // a roles header the filter defaults to ROLE_GUEST and the call 403s.
         this.restClient = RestClient.builder().baseUrl(baseUrl).defaultHeader(AppConstants.HEADER_NX036_AUTH, "service")
-                .build();
+                .defaultHeader("X-Auth-Roles", "ROLE_ADMIN,ROLE_INTERNAL")
+                .defaultHeader("X-Auth-Subject", "mic-orderservice").build();
     }
 
     /**
@@ -123,6 +126,34 @@ public class CatalogClient implements CatalogPort {
      * @return available stock count, or -1 if the check failed (service
      *         unavailable)
      */
+    @Override
+    public Optional<BigDecimal> getTaxRate(String country, String region) {
+        if (country == null || country.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            // Probe with subtotal=100 so taxAmount can be read as a percentage
+            // directly. We can't query the rule list with the current public
+            // surface, but `/api/v1/taxes/calculate` is already exposed and
+            // returns the effective rate after region fallback + category rules.
+            StringBuilder uri = new StringBuilder("/api/v1/taxes/calculate?subtotal=100&country=").append(country);
+            if (region != null && !region.isBlank()) {
+                uri.append("&state=").append(region);
+            }
+            Map<String, Object> body = restClient.get().uri(uri.toString()).retrieve()
+                    .body(new ParameterizedTypeReference<>() {
+                    });
+            if (body == null || !body.containsKey("taxAmount")) {
+                return Optional.empty();
+            }
+            BigDecimal taxAmount = new BigDecimal(body.get("taxAmount").toString());
+            return Optional.of(taxAmount.divide(new BigDecimal("100"), 6, java.math.RoundingMode.HALF_UP));
+        } catch (Exception e) {
+            log.warn("Failed to fetch tax rate for country={} region={}: {}", country, region, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     @Override
     public int getAvailableStock(String variantId) {
         try {

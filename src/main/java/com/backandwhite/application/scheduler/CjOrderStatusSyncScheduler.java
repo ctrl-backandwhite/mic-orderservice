@@ -41,7 +41,9 @@ public class CjOrderStatusSyncScheduler {
         log.info("Found {} CJ orders pending sync", pending.size());
 
         Instant thirtyMinAgo = Instant.now().minus(30, ChronoUnit.MINUTES);
-        int skipped = 0, success = 0, failed = 0;
+        int skipped = 0;
+        int success = 0;
+        int failed = 0;
         for (CjOrder cjOrder : pending) {
             // Skip only orders whose webhook update is under 30 min old.
             if (cjOrder.getLastWebhookAt() != null && cjOrder.getLastWebhookAt().isAfter(thirtyMinAgo)) {

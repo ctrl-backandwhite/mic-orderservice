@@ -68,8 +68,8 @@ class CouponUseCaseImplTest {
     @Test
     void update_missing_throws() {
         when(couponRepository.findById("x")).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> useCase.update("x", Coupon.builder().build()))
-                .isInstanceOf(EntityNotFoundException.class);
+        Coupon empty = Coupon.builder().build();
+        assertThatThrownBy(() -> useCase.update("x", empty)).isInstanceOf(EntityNotFoundException.class);
     }
 
     @Test
@@ -158,48 +158,48 @@ class CouponUseCaseImplTest {
     @Test
     void validate_missingCoupon_throws() {
         when(couponRepository.findByCode("X")).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> useCase.validate("X", Money.of(new BigDecimal("100")), null))
-                .isInstanceOf(EntityNotFoundException.class);
+        Money subtotal = Money.of(new BigDecimal("100"));
+        assertThatThrownBy(() -> useCase.validate("X", subtotal, null)).isInstanceOf(EntityNotFoundException.class);
     }
 
     @Test
     void validate_inactive_throws() {
         Coupon c = baseValidCoupon().active(false).build();
         when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.of(c));
-        assertThatThrownBy(() -> useCase.validate("SAVE10", Money.of(new BigDecimal("100")), null))
-                .isInstanceOf(BusinessException.class);
+        Money subtotal = Money.of(new BigDecimal("100"));
+        assertThatThrownBy(() -> useCase.validate("SAVE10", subtotal, null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
     void validate_notYetValid_throws() {
         Coupon c = baseValidCoupon().validFrom(Instant.now().plus(1, ChronoUnit.DAYS)).build();
         when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.of(c));
-        assertThatThrownBy(() -> useCase.validate("SAVE10", Money.of(new BigDecimal("100")), null))
-                .isInstanceOf(BusinessException.class);
+        Money subtotal = Money.of(new BigDecimal("100"));
+        assertThatThrownBy(() -> useCase.validate("SAVE10", subtotal, null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
     void validate_expired_throws() {
         Coupon c = baseValidCoupon().validUntil(Instant.now().minus(1, ChronoUnit.DAYS)).build();
         when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.of(c));
-        assertThatThrownBy(() -> useCase.validate("SAVE10", Money.of(new BigDecimal("100")), null))
-                .isInstanceOf(BusinessException.class);
+        Money subtotal = Money.of(new BigDecimal("100"));
+        assertThatThrownBy(() -> useCase.validate("SAVE10", subtotal, null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
     void validate_exhausted_throws() {
         Coupon c = baseValidCoupon().maxUses(5).usedCount(5).build();
         when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.of(c));
-        assertThatThrownBy(() -> useCase.validate("SAVE10", Money.of(new BigDecimal("100")), null))
-                .isInstanceOf(BusinessException.class);
+        Money subtotal = Money.of(new BigDecimal("100"));
+        assertThatThrownBy(() -> useCase.validate("SAVE10", subtotal, null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
     void validate_belowMinOrder_throws() {
         Coupon c = baseValidCoupon().minOrderAmount(Money.of(new BigDecimal("500"))).build();
         when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.of(c));
-        assertThatThrownBy(() -> useCase.validate("SAVE10", Money.of(new BigDecimal("100")), null))
-                .isInstanceOf(BusinessException.class);
+        Money subtotal = Money.of(new BigDecimal("100"));
+        assertThatThrownBy(() -> useCase.validate("SAVE10", subtotal, null)).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -207,8 +207,8 @@ class CouponUseCaseImplTest {
         Coupon c = baseValidCoupon().maxUsesPerUser(2).build();
         when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.of(c));
         when(couponRepository.countUsagesByUser("c1", "u1")).thenReturn(2);
-        assertThatThrownBy(() -> useCase.validate("SAVE10", Money.of(new BigDecimal("100")), "u1"))
-                .isInstanceOf(BusinessException.class);
+        Money subtotal = Money.of(new BigDecimal("100"));
+        assertThatThrownBy(() -> useCase.validate("SAVE10", subtotal, "u1")).isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -290,5 +290,23 @@ class CouponUseCaseImplTest {
         Money discount = useCase.validate("SAVE10", Money.of(new BigDecimal("100")), null);
         assertThat(discount).isNotNull();
         verify(couponRepository, never()).countUsagesByUser(anyString(), eq("ignored"));
+    }
+
+    @Test
+    void validate_maxUsesNotExceeded_passes() {
+        // covers: maxUses != null && usedCount < maxUses
+        Coupon c = baseValidCoupon().maxUses(10).usedCount(3).build();
+        when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.of(c));
+        Money discount = useCase.validate("SAVE10", Money.of(new BigDecimal("100")), null);
+        assertThat(discount).isNotNull();
+    }
+
+    @Test
+    void validate_minOrderMet_passes() {
+        // covers: minOrderAmount != null && cartSubtotal >= minOrderAmount
+        Coupon c = baseValidCoupon().minOrderAmount(Money.of(new BigDecimal("50"))).build();
+        when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.of(c));
+        Money discount = useCase.validate("SAVE10", Money.of(new BigDecimal("200")), null);
+        assertThat(discount.getAmount()).isEqualByComparingTo("20.00");
     }
 }

@@ -36,4 +36,12 @@ public interface CatalogPort {
      * @return available stock count, or -1 if the check failed
      */
     int getAvailableStock(String variantId);
+
+    /**
+     * Fetches the effective tax rate (as a decimal, e.g. 0.19 for 19%) for the
+     * given country / region from mic-productcategory's {@code country_taxes}
+     * table. Returns empty when the rule is missing or the service is unavailable
+     * so the caller can fall back to a sane default.
+     */
+    Optional<BigDecimal> getTaxRate(String country, String region);
 }

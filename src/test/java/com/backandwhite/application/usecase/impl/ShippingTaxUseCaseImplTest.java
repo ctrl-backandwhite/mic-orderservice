@@ -63,8 +63,8 @@ class ShippingTaxUseCaseImplTest {
     @Test
     void updateCarrier_missing_throws() {
         when(carrierRepository.findById("x")).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> useCase.updateCarrier("x", ShippingCarrier.builder().build()))
-                .isInstanceOf(EntityNotFoundException.class);
+        ShippingCarrier empty = ShippingCarrier.builder().build();
+        assertThatThrownBy(() -> useCase.updateCarrier("x", empty)).isInstanceOf(EntityNotFoundException.class);
     }
 
     @Test
@@ -128,8 +128,8 @@ class ShippingTaxUseCaseImplTest {
     @Test
     void updateRule_missing_throws() {
         when(ruleRepository.findById("x")).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> useCase.updateRule("x", ShippingRule.builder().build()))
-                .isInstanceOf(EntityNotFoundException.class);
+        ShippingRule empty = ShippingRule.builder().build();
+        assertThatThrownBy(() -> useCase.updateRule("x", empty)).isInstanceOf(EntityNotFoundException.class);
     }
 
     @Test
@@ -217,8 +217,8 @@ class ShippingTaxUseCaseImplTest {
     @Test
     void updateTaxRule_missing_throws() {
         when(taxRuleRepository.findById("x")).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> useCase.updateTaxRule("x", TaxRule.builder().build()))
-                .isInstanceOf(EntityNotFoundException.class);
+        TaxRule empty = TaxRule.builder().build();
+        assertThatThrownBy(() -> useCase.updateTaxRule("x", empty)).isInstanceOf(EntityNotFoundException.class);
     }
 
     @Test
@@ -305,5 +305,35 @@ class ShippingTaxUseCaseImplTest {
     void deleteTaxRule_missing_throws() {
         when(taxRuleRepository.findById("x")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> useCase.deleteTaxRule("x")).isInstanceOf(EntityNotFoundException.class);
+    }
+
+    // ── extra branch coverage for calculateTax ─────────────
+    @Test
+    void calculateTax_blankRegion_skipsCountryFallback() {
+        when(taxRuleRepository.findByCountryAndRegion("US", "")).thenReturn(List.of());
+        Money tax = useCase.calculateTax("US", "", Money.of(new BigDecimal("100")));
+        assertThat(tax.getAmount()).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void calculateTax_allRulesZeroRate_returnsDefault() {
+        // covers: effectiveRules.isEmpty() → default
+        TaxRule r1 = TaxRule.builder().rate(new BigDecimal("0")).type(TaxType.PERCENTAGE).build();
+        TaxRule r2 = TaxRule.builder().rate(null).type(TaxType.PERCENTAGE).build();
+        when(taxRuleRepository.findByCountryAndRegion("US", "CA")).thenReturn(List.of(r1, r2));
+
+        Money tax = useCase.calculateTax("US", "CA", Money.of(new BigDecimal("100")));
+        assertThat(tax.getAmount()).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void calculateTax_negativeRate_filteredOut() {
+        // covers: rate != null && signum > 0 → false (negative)
+        TaxRule negative = TaxRule.builder().rate(new BigDecimal("-0.05")).type(TaxType.PERCENTAGE).build();
+        TaxRule positive = TaxRule.builder().rate(new BigDecimal("0.20")).type(TaxType.PERCENTAGE).build();
+        when(taxRuleRepository.findByCountryAndRegion("US", "CA")).thenReturn(List.of(negative, positive));
+
+        Money tax = useCase.calculateTax("US", "CA", Money.of(new BigDecimal("100")));
+        assertThat(tax.getAmount()).isEqualByComparingTo("20.00");
     }
 }

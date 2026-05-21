@@ -136,7 +136,7 @@ class InvoiceUseCaseImplTest {
     @Test
     void update_missing_throws() {
         when(invoiceRepository.findById("x")).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> useCase.update("x", Invoice.builder().build()))
-                .isInstanceOf(EntityNotFoundException.class);
+        Invoice empty = Invoice.builder().build();
+        assertThatThrownBy(() -> useCase.update("x", empty)).isInstanceOf(EntityNotFoundException.class);
     }
 }

@@ -39,6 +39,8 @@ public class CouponController {
     @NxPublic
     @PostMapping("/validate")
     @Operation(summary = "Validarcupón", description = "Validauncupónydevuelveeldescuentocalculado")
+    @SuppressWarnings("java:S6863") // Soft-validate endpoint: always 200 OK with valid=true|false body so the cart
+                                    // UI can show inline message.
     public ResponseEntity<CouponValidationDtoOut> validate(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelusuario") @RequestHeader(value = "X-Auth-Subject", required = false) String userId,
             @Valid @RequestBody ValidateCouponDtoIn dto) {

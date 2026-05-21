@@ -4,9 +4,19 @@ public interface OrderEventPort {
 
     // ── Order Events ─────────────────────────────────────────────────────────
 
+    /**
+     * Kafka event payload — keep flat parameter list to match producer/consumer
+     * contract.
+     */
+    @SuppressWarnings("java:S107")
     void publishOrderCreated(String orderId, String userId, String email, String orderReference, String totalAmount,
             String currencyCode, String status, int itemCount, String shippingAddressId);
 
+    /**
+     * Kafka event payload — keep flat parameter list to match producer/consumer
+     * contract.
+     */
+    @SuppressWarnings("java:S107")
     void publishOrderConfirmed(String orderId, String userId, String email, String orderReference, String totalAmount,
             String currencyCode, String totalAmountUsd, int itemCount);
 
@@ -31,6 +41,11 @@ public interface OrderEventPort {
     void publishCartAbandoned(String cartId, String userId, String email, String totalAmount, int itemCount,
             String lastActivityAt);
 
+    /**
+     * Kafka event payload — keep flat parameter list to match producer/consumer
+     * contract.
+     */
+    @SuppressWarnings("java:S107")
     void publishCartCheckoutInitiated(String cartId, String orderId, String userId, String email, String totalAmount,
             String currencyCode, int itemCount, String couponCode, String shippingAddressId);
 

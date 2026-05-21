@@ -69,4 +69,27 @@ class CjFulfillmentCompensationServiceTest {
 
         assertThat(handled).isFalse();
     }
+
+    @Test
+    @DisplayName("returns false immediately when cjCode is null")
+    void onNullCjCode() {
+        CjOrder cjOrder = CjOrder.builder().orderId("o4").cjOrderId("cj4").build();
+
+        boolean handled = service.handlePipelineFailure(cjOrder, "CART", null, "no code");
+
+        assertThat(handled).isFalse();
+        verify(cjShoppingPort, never()).deleteOrder(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    @DisplayName("deleteOrder failures are swallowed during compensation")
+    void deleteOrderFailureSwallowed() {
+        CjOrder cjOrder = CjOrder.builder().orderId("o5").cjOrderId("cj5").build();
+        org.mockito.Mockito.doThrow(new RuntimeException("network gone")).when(cjShoppingPort).deleteOrder("cj5");
+
+        boolean handled = service.handlePipelineFailure(cjOrder, "CREATE", "1602001", "boom");
+
+        assertThat(handled).isTrue();
+        assertThat(cjOrder.getFulfillmentStep()).isEqualTo("FULFILLMENT_FAILED");
+    }
 }

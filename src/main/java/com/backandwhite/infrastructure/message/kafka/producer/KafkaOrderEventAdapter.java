@@ -18,6 +18,9 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(name = "spring.kafka.enabled", havingValue = "true")
 public class KafkaOrderEventAdapter implements OrderEventPort {
 
+    private static final String SOURCE_SYSTEM = "SYSTEM";
+    private static final String SOURCE_CATALOG = "CATALOG";
+
     private final KafkaTemplate<String, SpecificRecord> kafkaTemplate;
 
     // ── Order Events ─────────────────────────────────────────────────────────
@@ -164,9 +167,9 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
 
     @Override
     public void publishCjOrderPaid(String orderId, String amount) {
-        OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(orderId).setUserId("SYSTEM")
-                .setEmail(null).setOrderReference(amount).setPreviousStatus("PIPELINE").setNewStatus("CJ_PAID")
-                .setTimestamp(now()).build();
+        OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(orderId)
+                .setUserId(SOURCE_SYSTEM).setEmail(null).setOrderReference(amount).setPreviousStatus("PIPELINE")
+                .setNewStatus("CJ_PAID").setTimestamp(now()).build();
         send(AppConstants.KAFKA_TOPIC_CJ_ORDER_PAID, orderId, event);
     }
 
@@ -180,16 +183,16 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
 
     @Override
     public void publishCjFulfillmentFailed(String orderId, String step, String reason) {
-        OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(orderId).setUserId("SYSTEM")
-                .setEmail(null).setOrderReference(step).setPreviousStatus(step).setNewStatus("CJ_PIPELINE_FAILED")
-                .setTimestamp(now()).build();
+        OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(orderId)
+                .setUserId(SOURCE_SYSTEM).setEmail(null).setOrderReference(step).setPreviousStatus(step)
+                .setNewStatus("CJ_PIPELINE_FAILED").setTimestamp(now()).build();
         send(AppConstants.KAFKA_TOPIC_CJ_FULFILLMENT_FAILED, orderId, event);
     }
 
     @Override
     public void publishCjBalanceLow(String balance, String threshold) {
         OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId("BALANCE_MONITOR")
-                .setUserId("SYSTEM").setEmail(null).setOrderReference(balance).setPreviousStatus(balance)
+                .setUserId(SOURCE_SYSTEM).setEmail(null).setOrderReference(balance).setPreviousStatus(balance)
                 .setNewStatus("CJ_BALANCE_LOW").setTimestamp(now()).build();
         send(AppConstants.KAFKA_TOPIC_CJ_BALANCE_LOW, "BALANCE_MONITOR", event);
     }
@@ -200,14 +203,14 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
     public void publishCatalogProductUpdate(String pid, String rawPayload) {
         OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(pid).setUserId("CJ")
                 .setEmail(null).setOrderReference(rawPayload != null ? truncate(rawPayload, 500) : "")
-                .setPreviousStatus("CATALOG").setNewStatus("PRODUCT_UPDATE").setTimestamp(now()).build();
+                .setPreviousStatus(SOURCE_CATALOG).setNewStatus("PRODUCT_UPDATE").setTimestamp(now()).build();
         send(AppConstants.KAFKA_TOPIC_CJ_CATALOG_PRODUCT_UPDATE, pid, event);
     }
 
     @Override
     public void publishCatalogProductDelete(String pid) {
         OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(pid).setUserId("CJ")
-                .setEmail(null).setOrderReference("").setPreviousStatus("CATALOG").setNewStatus("PRODUCT_DELETE")
+                .setEmail(null).setOrderReference("").setPreviousStatus(SOURCE_CATALOG).setNewStatus("PRODUCT_DELETE")
                 .setTimestamp(now()).build();
         send(AppConstants.KAFKA_TOPIC_CJ_CATALOG_PRODUCT_DELETE, pid, event);
     }
@@ -215,7 +218,7 @@ public class KafkaOrderEventAdapter implements OrderEventPort {
     @Override
     public void publishCatalogStockChange(String vid, Integer remaining, String rawPayload) {
         OrderStatusUpdatedEvent event = OrderStatusUpdatedEvent.newBuilder().setOrderId(vid).setUserId("CJ")
-                .setEmail(null).setOrderReference(String.valueOf(remaining)).setPreviousStatus("CATALOG")
+                .setEmail(null).setOrderReference(String.valueOf(remaining)).setPreviousStatus(SOURCE_CATALOG)
                 .setNewStatus("STOCK_CHANGE").setTimestamp(now()).build();
         send(AppConstants.KAFKA_TOPIC_CJ_CATALOG_STOCK_CHANGE, vid, event);
     }

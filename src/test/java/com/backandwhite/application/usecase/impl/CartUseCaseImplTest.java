@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -107,7 +106,7 @@ class CartUseCaseImplTest {
         when(cartRepository.findById("c1")).thenReturn(Optional.of(cart));
 
         useCase.addItem("u1", null, newItem);
-        verify(cartRepository).addItem(eq("c1"), eq(newItem));
+        verify(cartRepository).addItem("c1", newItem);
         assertThat(newItem.getCartId()).isEqualTo("c1");
     }
 
@@ -244,7 +243,7 @@ class CartUseCaseImplTest {
 
         Cart result = useCase.mergeCart("u1", "s1");
         assertThat(existing.getQuantity()).isEqualTo(3);
-        verify(cartRepository).addItem(eq("user"), eq(anonItem2));
+        verify(cartRepository).addItem("user", anonItem2);
         assertThat(anon.getStatus()).isEqualTo(CartStatus.MERGED);
         verify(cartRepository).update(anon);
         assertThat(result).isSameAs(userCart);
@@ -286,5 +285,30 @@ class CartUseCaseImplTest {
 
         Cart result = useCase.mergeCart("u1", "s1");
         assertThat(result).isSameAs(userCart);
+    }
+
+    // ── extra branch coverage ──────────────────────────────
+    @Test
+    void addItem_zeroQuantity_throwsIllegalArgument() {
+        CartItem zero = CartItem.builder().productId("p1").variantId("v1").quantity(0).build();
+        assertThatThrownBy(() -> useCase.addItem("u1", null, zero)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at least 1");
+    }
+
+    @Test
+    void addItem_negativeQuantity_throwsIllegalArgument() {
+        CartItem neg = CartItem.builder().productId("p1").variantId("v1").quantity(-3).build();
+        assertThatThrownBy(() -> useCase.addItem("u1", null, neg)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void updateItemQuantity_zero_throwsIllegalArgument() {
+        assertThatThrownBy(() -> useCase.updateItemQuantity("i1", 0)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at least 1");
+    }
+
+    @Test
+    void updateItemQuantity_negative_throwsIllegalArgument() {
+        assertThatThrownBy(() -> useCase.updateItemQuantity("i1", -1)).isInstanceOf(IllegalArgumentException.class);
     }
 }

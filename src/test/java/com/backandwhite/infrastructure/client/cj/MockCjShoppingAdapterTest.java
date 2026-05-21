@@ -1,6 +1,7 @@
 package com.backandwhite.infrastructure.client.cj;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.backandwhite.domain.model.CjFreightOption;
 import com.backandwhite.domain.model.Order;
@@ -69,7 +70,30 @@ class MockCjShoppingAdapterTest {
     @Test
     @DisplayName("deleteOrder and registerWebhookUrl are no-ops — must not throw")
     void noOpsDoNotThrow() {
-        adapter.deleteOrder("cj-x");
-        adapter.registerWebhookUrl("https://example.test");
+        assertThatCode(() -> {
+            adapter.deleteOrder("cj-x");
+            adapter.registerWebhookUrl("https://example.test");
+        }).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("getOrderDetail returns a synthetic UNSHIPPED order with the queried id")
+    void getOrderDetailMocked() {
+        var detail = adapter.getOrderDetail("cj-1");
+        assertThat(detail.getCjOrderId()).isEqualTo("cj-1");
+        assertThat(detail.getCjOrderStatus()).isEqualTo(CjOrderStatus.UNSHIPPED);
+        assertThat(detail.getTrackNumber()).startsWith("MOCK_TRK_");
+    }
+
+    @Test
+    @DisplayName("getBalance returns a non-blank synthetic value")
+    void getBalanceMocked() {
+        assertThat(adapter.getBalance()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("getRegisteredWebhookUrl returns a deterministic mock URL")
+    void getRegisteredWebhookMocked() {
+        assertThat(adapter.getRegisteredWebhookUrl()).contains("mock");
     }
 }

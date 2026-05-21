@@ -1,5 +1,6 @@
 package com.backandwhite.infrastructure.client.cj.auth;
 
+import com.backandwhite.common.exception.BusinessException;
 import com.backandwhite.infrastructure.client.cj.dto.CjAccessTokenDataDto;
 import com.backandwhite.infrastructure.db.postgres.entity.CjTokenEntity;
 import com.backandwhite.infrastructure.db.postgres.repository.CjTokenJpaRepository;
@@ -25,7 +26,7 @@ public class CjShoppingTokenManager {
 
     private static final String SINGLETON_ID = "SINGLETON";
     private static final DateTimeFormatter CJ_DATE_FMT = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
-    private static final long TOKEN_REQUEST_COOLDOWN_SECONDS = 5 * 60;
+    private static final long TOKEN_REQUEST_COOLDOWN_SECONDS = 5L * 60;
     private static final long PROACTIVE_REFRESH_MINUTES = 30;
 
     private final CjShoppingAuthClient cjShoppingAuthClient;
@@ -168,7 +169,7 @@ public class CjShoppingTokenManager {
                     log.warn("CJ Shopping token cooldown active ({} s remaining). Reusing cached token.", remaining);
                     return cachedAccessToken;
                 }
-                throw new RuntimeException(
+                throw new BusinessException("CJ_TOKEN_COOLDOWN",
                         "CJ Shopping token cooldown: must wait " + remaining + "s before requesting new token");
             }
         }
@@ -213,10 +214,10 @@ public class CjShoppingTokenManager {
             return null;
         try {
             return OffsetDateTime.parse(dateStr, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant();
-        } catch (Exception e1) {
+        } catch (Exception _) {
             try {
                 return LocalDateTime.parse(dateStr, CJ_DATE_FMT).toInstant(ZoneOffset.UTC);
-            } catch (Exception e2) {
+            } catch (Exception _) {
                 log.warn("Could not parse CJ date '{}', treating as null", dateStr);
                 return null;
             }

@@ -95,9 +95,14 @@ public class ReturnUseCaseImpl implements ReturnUseCase {
         if (newStatus == ReturnStatus.APPROVED) {
             Order order = orderRepository.findById(request.getOrderId()).orElse(null);
             String orderRef = order != null ? order.getOrderNumber() : null;
-            Money refundAmount = request.getRefundAmount() != null
-                    ? request.getRefundAmount()
-                    : (order != null ? order.getTotal() : Money.zero());
+            Money refundAmount;
+            if (request.getRefundAmount() != null) {
+                refundAmount = request.getRefundAmount();
+            } else if (order != null) {
+                refundAmount = order.getTotal();
+            } else {
+                refundAmount = Money.zero();
+            }
             orderEventPort.publishOrderReturnApproved(request.getOrderId(), updated.getId(), request.getUserId(), null,
                     orderRef, refundAmount.toPlainString());
             log.info("Published order.return.approved for return={}, refundAmount={}", updated.getId(), refundAmount);

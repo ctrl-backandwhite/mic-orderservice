@@ -40,6 +40,8 @@ public class CjWebhookRegistrationService {
 
     @PostConstruct
     @Async
+    @SuppressWarnings("java:S5852") // Anchored single-class quantifier '/+$' on a config-derived URL is bounded; no
+                                    // catastrophic backtracking risk.
     public void registerOnStartup() {
         String baseUrl = webhookProperties.getBaseUrl();
         String secret = webhookProperties.getSecret();

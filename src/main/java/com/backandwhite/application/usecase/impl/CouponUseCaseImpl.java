@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CouponUseCaseImpl implements CouponUseCase {
 
+    private static final String ENTITY_COUPON = "Coupon";
+
     private final CouponRepository couponRepository;
 
     @Override
@@ -36,7 +38,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional
     public Coupon update(String id, Coupon coupon) {
-        couponRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
+        couponRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_COUPON, id));
         coupon.setId(id);
         return couponRepository.update(coupon);
     }
@@ -44,7 +46,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional(readOnly = true)
     public Coupon findById(String id) {
-        return couponRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
+        return couponRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_COUPON, id));
     }
 
     @Override
@@ -59,7 +61,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional
     public void delete(String id) {
-        couponRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
+        couponRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_COUPON, id));
         couponRepository.delete(id);
     }
 
@@ -67,7 +69,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Transactional
     public void toggleActive(String id) {
         Coupon coupon = couponRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", id));
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_COUPON, id));
         coupon.setActive(!coupon.isActive());
         couponRepository.update(coupon);
     }
@@ -75,7 +77,8 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional(readOnly = true)
     public Coupon findByCode(String code) {
-        return couponRepository.findByCode(code).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", code));
+        return couponRepository.findByCode(code)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_COUPON, code));
     }
 
     @Override
@@ -85,7 +88,7 @@ public class CouponUseCaseImpl implements CouponUseCase {
             throw new IllegalArgumentException("cartSubtotal is required");
         }
         Coupon coupon = couponRepository.findByCode(code)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", code));
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_COUPON, code));
 
         if (!coupon.isActive()) {
             throw COUPON_INACTIVE.toBusinessException();
@@ -128,7 +131,8 @@ public class CouponUseCaseImpl implements CouponUseCase {
     @Override
     @Transactional(readOnly = true)
     public List<CouponUsage> findUsages(String couponId) {
-        couponRepository.findById(couponId).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Coupon", couponId));
+        couponRepository.findById(couponId)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_COUPON, couponId));
         return couponRepository.findUsagesByCouponId(couponId);
     }
 

@@ -13,10 +13,15 @@ import java.util.List;
 import java.util.Map;
 
 public interface OrderUseCase {
+    /**
+     * Public checkout entry-point. Flat parameter list reflects the rich cart→order
+     * conversion contract.
+     */
+    @SuppressWarnings("java:S107")
     Order createFromCart(String userId, String sessionId, Map<String, Object> shippingAddress,
             Map<String, Object> billingAddress, String paymentMethod, String couponCode, String giftCardCode,
             BigDecimal giftCardAmount, Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount, String notes,
-            String currencyCode, String customerLocale);
+            String currencyCode, String customerLocale, String shippingRuleId);
 
     Order confirmOrder(String orderId, String userId, String email);
 
@@ -26,6 +31,7 @@ public interface OrderUseCase {
      * buyer receives a fiscal invoice via the existing invoice+email pipeline.
      * Idempotent by externalRef (the gift card id) to survive Kafka redelivery.
      */
+    @SuppressWarnings("java:S107")
     Order createGiftCardOrder(String giftCardId, String code, String buyerId, String buyerEmail, String buyerName,
             String amount, String currencyCode, String recipientName, String recipientEmail, String message);
 

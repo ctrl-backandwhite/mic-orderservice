@@ -1,6 +1,7 @@
 package com.backandwhite.application.usecase.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -185,7 +186,7 @@ class CjOrderFulfillmentUseCaseImplTest {
         doThrow(new RuntimeException("boom")).when(orderUseCase).updateStatus(anyString(), any(OrderStatus.class),
                 anyString(), anyString());
 
-        useCase.syncStatus("o1");
+        assertThatCode(() -> useCase.syncStatus("o1")).doesNotThrowAnyException();
     }
 
     @Test

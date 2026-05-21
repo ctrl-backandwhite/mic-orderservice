@@ -27,6 +27,8 @@ public class AdminPiiAuditService {
     private final AdminPiiAccessLogJpaRepository repository;
 
     @Transactional
+    @SuppressWarnings("java:S6213") // Existing public API name kept stable; covered by tests in
+                                    // AdminPiiAuditServiceTest.
     public void record(String adminUserId, String customerId, String orderId, String action, String reason,
             String sourceIp) {
         AdminPiiAccessLogEntity entity = AdminPiiAccessLogEntity.builder().at(Instant.now()).adminUserId(adminUserId)

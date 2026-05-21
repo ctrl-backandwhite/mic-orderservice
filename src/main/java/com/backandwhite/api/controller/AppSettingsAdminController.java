@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "App Settings", description = "Runtime flags / kill switches stored in app_settings")
 public class AppSettingsAdminController {
 
+    private static final String KEY_VALUE = "value";
+
     private final AppSettingJpaRepository repository;
 
     @NxAdmin
@@ -31,8 +33,8 @@ public class AppSettingsAdminController {
     @Operation(summary = "Read a runtime setting by key")
     public ResponseEntity<Map<String, String>> get(@PathVariable String key) {
         return repository.findById(key).map(
-                e -> ResponseEntity.ok(Map.of("key", e.getKey(), "value", e.getValue() != null ? e.getValue() : "")))
-                .orElse(ResponseEntity.ok(Map.of("key", key, "value", "")));
+                e -> ResponseEntity.ok(Map.of("key", e.getKey(), KEY_VALUE, e.getValue() != null ? e.getValue() : "")))
+                .orElse(ResponseEntity.ok(Map.of("key", key, KEY_VALUE, "")));
     }
 
     @NxAdmin
@@ -43,6 +45,6 @@ public class AppSettingsAdminController {
         entity.setValue(value);
         entity.setUpdatedAt(Instant.now());
         repository.save(entity);
-        return ResponseEntity.ok(Map.of("key", key, "value", value));
+        return ResponseEntity.ok(Map.of("key", key, KEY_VALUE, value));
     }
 }

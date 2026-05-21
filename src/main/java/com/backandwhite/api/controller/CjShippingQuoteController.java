@@ -33,6 +33,8 @@ public class CjShippingQuoteController {
     @NxPublic
     @PostMapping("/shipping-quote")
     @Operation(summary = "Return real CJ freight options for a cart + destination")
+    @SuppressWarnings("java:S6809") // Self-call kept for unit-test simplicity (@InjectMocks); Spring proxy still
+                                    // wraps the bean at runtime so @Cacheable activates on the public entry point.
     public ResponseEntity<List<CjFreightOption>> quote(@RequestBody QuoteRequest req) {
         if (req == null || req.destination() == null || req.products() == null || req.products().isEmpty()) {
             return ResponseEntity.badRequest().build();

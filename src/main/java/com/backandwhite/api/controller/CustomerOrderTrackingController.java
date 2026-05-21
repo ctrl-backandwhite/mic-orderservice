@@ -61,7 +61,7 @@ public class CustomerOrderTrackingController {
         }
         try {
             return ResponseEntity.ok(buildTrackingPayload(orderId));
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             return ResponseEntity.notFound().build();
         }
     }

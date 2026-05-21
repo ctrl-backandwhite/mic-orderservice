@@ -1,6 +1,7 @@
 package com.backandwhite.application.service;
 
 import com.backandwhite.common.domain.valueobject.Money;
+import com.backandwhite.common.exception.BusinessException;
 import com.backandwhite.domain.model.Invoice;
 import com.lowagie.text.DocumentException;
 import java.io.ByteArrayOutputStream;
@@ -31,12 +32,18 @@ public class InvoicePdfService {
     }
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy",
-            new Locale("es", "ES"));
+            Locale.of("es", "ES"));
 
     /**
      * Generates a PDF byte array from an Invoice domain object.
      */
     public byte[] generatePdf(Invoice invoice) {
+        Context ctx = buildContext(invoice);
+        String html = templateEngine.process("invoice-pdf", ctx);
+        return renderHtml(invoice, html);
+    }
+
+    private Context buildContext(Invoice invoice) {
         Context ctx = new Context();
         ctx.setVariable("invoice", invoice);
         ctx.setVariable("currency", invoice.getCurrencyCode() != null ? invoice.getCurrencyCode() : "USD");
@@ -50,37 +57,53 @@ public class InvoicePdfService {
         ctx.setVariable("issueDateFmt", fmtDate(invoice.getIssueDate()));
         ctx.setVariable("dueDateFmt", fmtDate(invoice.getDueDate()));
 
-        // Customer snapshot — tolerate both shapes the rest of the codebase
-        // uses: either a flat {name, email, phone, address} map (built by
-        // OrderUseCaseImpl at confirm time) or a granular {firstName,
-        // lastName, street, city, state, zipCode, country, email, phone}
-        // map (legacy path). Missing fields resolve to empty strings so
-        // the template never crashes on a partial snapshot.
-        Map<String, Object> customer = invoice.getCustomerSnapshot();
-        if (customer != null) {
-            String flatName = str(customer.get("name"));
-            String firstName = str(customer.get("firstName"));
-            String lastName = str(customer.get("lastName"));
-            String resolvedName = !flatName.isEmpty() ? flatName : (firstName + " " + lastName).trim();
-
-            String flatAddress = str(customer.get("address"));
-            String resolvedAddress = !flatAddress.isEmpty() ? flatAddress : buildAddress(customer);
-
-            ctx.setVariable("customerName", resolvedName);
-            ctx.setVariable("customerEmail", str(customer.get("email")));
-            ctx.setVariable("customerPhone", str(customer.get("phone")));
-            ctx.setVariable("customerAddress", resolvedAddress);
-        } else {
-            ctx.setVariable("customerName", "");
-            ctx.setVariable("customerEmail", "");
-            ctx.setVariable("customerPhone", "");
-            ctx.setVariable("customerAddress", "");
-        }
+        // Customer snapshot
+        applyCustomerSnapshot(ctx, invoice.getCustomerSnapshot());
 
         // Payment method label
         ctx.setVariable("paymentMethodLabel", formatPaymentMethod(invoice.getPaymentMethod()));
 
         // "Charged via" amount (when gift card or loyalty covers part of total)
+        applyChargedVia(ctx, invoice);
+
+        // QR code URL
+        String verifyUrl = storeUrl + "/verificar-factura/" + invoice.getInvoiceNumber();
+        String qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data="
+                + URLEncoder.encode(verifyUrl, StandardCharsets.UTF_8);
+        ctx.setVariable("qrCodeUrl", qrCodeUrl);
+        return ctx;
+    }
+
+    /**
+     * Customer snapshot — tolerate both shapes the rest of the codebase uses:
+     * either a flat {name, email, phone, address} map (built by OrderUseCaseImpl at
+     * confirm time) or a granular {firstName, lastName, street, city, state,
+     * zipCode, country, email, phone} map (legacy path). Missing fields resolve to
+     * empty strings so the template never crashes on a partial snapshot.
+     */
+    private void applyCustomerSnapshot(Context ctx, Map<String, Object> customer) {
+        if (customer == null) {
+            ctx.setVariable("customerName", "");
+            ctx.setVariable("customerEmail", "");
+            ctx.setVariable("customerPhone", "");
+            ctx.setVariable("customerAddress", "");
+            return;
+        }
+        String flatName = str(customer.get("name"));
+        String firstName = str(customer.get("firstName"));
+        String lastName = str(customer.get("lastName"));
+        String resolvedName = !flatName.isEmpty() ? flatName : (firstName + " " + lastName).trim();
+
+        String flatAddress = str(customer.get("address"));
+        String resolvedAddress = !flatAddress.isEmpty() ? flatAddress : buildAddress(customer);
+
+        ctx.setVariable("customerName", resolvedName);
+        ctx.setVariable("customerEmail", str(customer.get("email")));
+        ctx.setVariable("customerPhone", str(customer.get("phone")));
+        ctx.setVariable("customerAddress", resolvedAddress);
+    }
+
+    private void applyChargedVia(Context ctx, Invoice invoice) {
         Money giftCard = invoice.getGiftCardAmount() != null ? invoice.getGiftCardAmount() : Money.zero();
         Money loyalty = invoice.getLoyaltyDiscount() != null ? invoice.getLoyaltyDiscount() : Money.zero();
         if ((giftCard.isPositive() || loyalty.isPositive()) && invoice.getTotal() != null) {
@@ -89,15 +112,9 @@ public class InvoicePdfService {
                 ctx.setVariable("chargedVia", charged.getAmount());
             }
         }
+    }
 
-        // QR code URL
-        String verifyUrl = storeUrl + "/verificar-factura/" + invoice.getInvoiceNumber();
-        String qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data="
-                + URLEncoder.encode(verifyUrl, StandardCharsets.UTF_8);
-        ctx.setVariable("qrCodeUrl", qrCodeUrl);
-
-        String html = templateEngine.process("invoice-pdf", ctx);
-
+    private byte[] renderHtml(Invoice invoice, String html) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             ITextRenderer renderer = new ITextRenderer();
             renderer.setDocumentFromString(html);
@@ -106,11 +123,11 @@ public class InvoicePdfService {
             return baos.toByteArray();
         } catch (DocumentException e) {
             log.error("Error generating invoice PDF for invoice {}: {}", invoice.getInvoiceNumber(), e.getMessage(), e);
-            throw new RuntimeException("Failed to generate invoice PDF", e);
+            throw new BusinessException("INVOICE_PDF_GEN_FAILED", "Failed to generate invoice PDF");
         } catch (Exception e) {
             log.error("Unexpected error generating invoice PDF for invoice {}: {}", invoice.getInvoiceNumber(),
                     e.getMessage(), e);
-            throw new RuntimeException("Failed to generate invoice PDF", e);
+            throw new BusinessException("INVOICE_PDF_GEN_FAILED", "Failed to generate invoice PDF");
         }
     }
 

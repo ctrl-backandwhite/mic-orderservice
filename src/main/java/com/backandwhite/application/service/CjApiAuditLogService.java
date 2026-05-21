@@ -34,7 +34,13 @@ public class CjApiAuditLogService {
     private final CjApiAuditLogJpaRepository repository;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Persists a single CJ API call audit row — flat parameter list mirrors the
+     * {@link CjApiAuditLogEntity} columns.
+     */
     @Transactional
+    @SuppressWarnings({"java:S107", "java:S6213"}) // Public API kept stable; covered by tests in
+                                                   // CjApiAuditLogServiceTest.
     public CjApiAuditLogEntity record(String endpoint, String orderId, Integer httpStatus, String cjCode,
             String cjRequestId, int latencyMs, Object requestBody, Object responseBody, String errorMessage,
             int retryAttempt) {

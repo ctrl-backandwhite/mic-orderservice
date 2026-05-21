@@ -51,7 +51,7 @@ public class OrderController {
         Order order = orderUseCase.createFromCart(userId, sessionId, dto.getShippingAddress(), dto.getBillingAddress(),
                 dto.getPaymentMethod(), dto.getCouponCode(), dto.getGiftCardCode(), dto.getGiftCardAmount(),
                 dto.getLoyaltyPointsUsed(), dto.getLoyaltyDiscount(), dto.getNotes(), dto.getCurrencyCode(),
-                dto.getCustomerLocale());
+                dto.getCustomerLocale(), dto.getShippingRuleId());
         return ResponseEntity.status(HttpStatus.CREATED).body(orderApiMapper.toDto(order));
     }
 
@@ -78,6 +78,10 @@ public class OrderController {
     @Operation(summary = "Detalledemipedido", description = "Obtieneeldetalledeunpedidodelusuario")
     public ResponseEntity<OrderDtoOut> getMyOrder(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelpedido") @PathVariable String id) {
+        return findOrderById(id);
+    }
+
+    private ResponseEntity<OrderDtoOut> findOrderById(String id) {
         Order order = orderUseCase.findById(id);
         return ResponseEntity.ok(orderApiMapper.toDto(order));
     }
@@ -134,8 +138,7 @@ public class OrderController {
     @Operation(summary = "[Admin]Detalledepedido", description = "Obtieneeldetallecompletodeunpedido")
     public ResponseEntity<OrderDtoOut> getById(@RequestHeader(AppConstants.HEADER_NX036_AUTH) String nxAuth,
             @Parameter(description = "IDdelpedido") @PathVariable String id) {
-        Order order = orderUseCase.findById(id);
-        return ResponseEntity.ok(orderApiMapper.toDto(order));
+        return findOrderById(id);
     }
 
     @NxAdmin

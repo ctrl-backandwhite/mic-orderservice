@@ -2,6 +2,7 @@ package com.backandwhite.application.usecase.impl;
 
 import static com.backandwhite.common.exception.Message.ENTITY_NOT_FOUND;
 
+import com.backandwhite.application.port.out.CatalogPort;
 import com.backandwhite.application.usecase.ShippingTaxUseCase;
 import com.backandwhite.common.domain.model.PageResult;
 import com.backandwhite.common.domain.valueobject.Money;
@@ -33,6 +34,7 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
     private final ShippingCarrierRepository carrierRepository;
     private final ShippingRuleRepository ruleRepository;
     private final TaxRuleRepository taxRuleRepository;
+    private final CatalogPort catalogPort;
 
     // ---- Carriers ----
     @Override
@@ -205,8 +207,15 @@ public class ShippingTaxUseCaseImpl implements ShippingTaxUseCase {
             rules = taxRuleRepository.findByCountryAndRegion(normalisedCountry, null);
         }
 
-        // 3. Default 10 % when no rules are configured
+        // 3. No local rule → ask mic-productcategory (single source of truth
+        // shared with the storefront tax-quote endpoint). This keeps the
+        // checkout preview and the persisted order in lockstep instead of
+        // diverging at 10% vs the country's real VAT/sales tax.
         if (rules.isEmpty()) {
+            BigDecimal remoteRate = catalogPort.getTaxRate(normalisedCountry, region).orElse(null);
+            if (remoteRate != null && remoteRate.signum() > 0) {
+                return subtotal.multiply(remoteRate);
+            }
             return subtotal.multiply(DEFAULT_TAX_RATE);
         }
 

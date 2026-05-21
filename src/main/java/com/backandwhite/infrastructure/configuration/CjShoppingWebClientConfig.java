@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
@@ -33,7 +34,7 @@ public class CjShoppingWebClientConfig {
                     throw Message.CJ_RATE_LIMIT.toExternalServiceException();
                 }).defaultStatusHandler(status -> status.is4xxClientError() && status.value() != 429, response -> {
                     throw Message.CJ_DATA_ERROR.toExternalServiceException("HTTP " + response.statusCode().value());
-                }).defaultStatusHandler(status -> status.is5xxServerError(), response -> {
+                }).defaultStatusHandler(HttpStatusCode::is5xxServerError, response -> {
                     throw Message.CJ_DATA_ERROR.toExternalServiceException("HTTP " + response.statusCode().value());
                 }).build();
     }

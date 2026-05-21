@@ -30,7 +30,7 @@ public enum CjOrderStatus {
             return CREATED;
         try {
             return CjOrderStatus.valueOf(value.toUpperCase());
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             return CREATED;
         }
     }

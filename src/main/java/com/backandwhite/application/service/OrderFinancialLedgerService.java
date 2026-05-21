@@ -34,19 +34,19 @@ public class OrderFinancialLedgerService {
     @Transactional
     public OrderFinancialLedgerEntity recordInbound(String orderId, BigDecimal amount, String currency,
             BigDecimal fxRate, String provider, String externalTxId, String metadata) {
-        return record(orderId, INBOUND, amount, currency, fxRate, provider, externalTxId, metadata);
+        return recordEntry(orderId, INBOUND, amount, currency, fxRate, provider, externalTxId, metadata);
     }
 
     @Transactional
     public OrderFinancialLedgerEntity recordOutbound(String orderId, BigDecimal amount, String currency, String payId,
             String metadata) {
-        return record(orderId, OUTBOUND, amount, currency, BigDecimal.ONE, "cj", payId, metadata);
+        return recordEntry(orderId, OUTBOUND, amount, currency, BigDecimal.ONE, "cj", payId, metadata);
     }
 
     @Transactional
     public OrderFinancialLedgerEntity recordRefund(String orderId, BigDecimal amount, String currency, String provider,
             String externalTxId, String metadata) {
-        return record(orderId, REFUND, amount, currency, BigDecimal.ONE, provider, externalTxId, metadata);
+        return recordEntry(orderId, REFUND, amount, currency, BigDecimal.ONE, provider, externalTxId, metadata);
     }
 
     public List<OrderFinancialLedgerEntity> findByOrder(String orderId) {
@@ -79,7 +79,9 @@ public class OrderFinancialLedgerService {
                 acceptable);
     }
 
-    private OrderFinancialLedgerEntity record(String orderId, String type, BigDecimal amount, String currency,
+    @SuppressWarnings("java:S107") // Internal helper mirrors ledger row columns; kept flat to match repository
+                                   // contract.
+    private OrderFinancialLedgerEntity recordEntry(String orderId, String type, BigDecimal amount, String currency,
             BigDecimal fxRate, String provider, String externalTxId, String metadata) {
         OrderFinancialLedgerEntity entity = OrderFinancialLedgerEntity.builder().orderId(orderId).entryType(type)
                 .amount(amount).currency(currency).fxRate(fxRate != null ? fxRate : BigDecimal.ONE).provider(provider)

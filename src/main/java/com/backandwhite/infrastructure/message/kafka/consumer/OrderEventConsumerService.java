@@ -26,6 +26,8 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(name = "spring.kafka.enabled", havingValue = "true")
 public class OrderEventConsumerService {
 
+    private static final String CHANGED_BY_SYSTEM = "SYSTEM";
+
     private final OrderUseCase orderUseCase;
     private final OrderCompensationService orderCompensationService;
     private final CjOrderFulfillmentUseCase cjOrderFulfillmentUseCase;
@@ -41,21 +43,8 @@ public class OrderEventConsumerService {
             // Walk the allowed ladder DRAFT → PENDING → CONFIRMED. The frontend
             // also calls confirmOrder (DRAFT → PENDING) in parallel, so here
             // we nudge the state forward without assuming where it is.
-            try {
-                var current = orderUseCase.findById(orderId);
-                if (current != null && current.getStatus() == OrderStatus.DRAFT) {
-                    orderUseCase.updateStatus(orderId, OrderStatus.PENDING, "SYSTEM",
-                            "Payment confirmed async — advancing DRAFT→PENDING");
-                }
-            } catch (Exception step1) {
-                log.debug("::> DRAFT→PENDING skipped: {}", step1.getMessage());
-            }
-            try {
-                orderUseCase.updateStatus(orderId, OrderStatus.CONFIRMED, "SYSTEM", "Payment confirmed");
-            } catch (Exception step2) {
-                // Idempotent — may already be CONFIRMED/PROCESSING by another path.
-                log.debug("::> PENDING→CONFIRMED skipped: {}", step2.getMessage());
-            }
+            advanceDraftToPending(orderId);
+            advancePendingToConfirmed(orderId);
 
             // Fase 5 + 8.3 — ledger INBOUND + item snapshot + margin gate
             boolean marginAcceptable = runReconciliation(event, orderId, paymentId);
@@ -67,14 +56,39 @@ public class OrderEventConsumerService {
             // Submit to CJ Dropshipping only if reconciliation passed. The use
             // case itself honours app.cj.enabled and short-circuits when the
             // feature flag is off, so we don't need to gate again here.
-            try {
-                cjOrderFulfillmentUseCase.submitOrderToCj(orderId);
-            } catch (Exception cjEx) {
-                log.error("::> CJ submission failed for order={}: {} (will retry via scheduler)", orderId,
-                        cjEx.getMessage());
-            }
+            submitToCjSafely(orderId);
         } catch (Exception e) {
             log.error("::> Failed processing payment.confirmed for order={}: {}", orderId, e.getMessage(), e);
+        }
+    }
+
+    private void advanceDraftToPending(String orderId) {
+        try {
+            var current = orderUseCase.findById(orderId);
+            if (current != null && current.getStatus() == OrderStatus.DRAFT) {
+                orderUseCase.updateStatus(orderId, OrderStatus.PENDING, CHANGED_BY_SYSTEM,
+                        "Payment confirmed async — advancing DRAFT→PENDING");
+            }
+        } catch (Exception step1) {
+            log.debug("::> DRAFT→PENDING skipped: {}", step1.getMessage());
+        }
+    }
+
+    private void advancePendingToConfirmed(String orderId) {
+        try {
+            orderUseCase.updateStatus(orderId, OrderStatus.CONFIRMED, CHANGED_BY_SYSTEM, "Payment confirmed");
+        } catch (Exception step2) {
+            // Idempotent — may already be CONFIRMED/PROCESSING by another path.
+            log.debug("::> PENDING→CONFIRMED skipped: {}", step2.getMessage());
+        }
+    }
+
+    private void submitToCjSafely(String orderId) {
+        try {
+            cjOrderFulfillmentUseCase.submitOrderToCj(orderId);
+        } catch (Exception cjEx) {
+            log.error("::> CJ submission failed for order={}: {} (will retry via scheduler)", orderId,
+                    cjEx.getMessage());
         }
     }
 
@@ -114,7 +128,7 @@ public class OrderEventConsumerService {
         log.info("::> Received shipping.order.shipped: orderId={}, tracking={}", orderId,
                 str(event.getTrackingNumber()));
         try {
-            orderUseCase.updateStatus(orderId, OrderStatus.SHIPPED, "SYSTEM",
+            orderUseCase.updateStatus(orderId, OrderStatus.SHIPPED, CHANGED_BY_SYSTEM,
                     "Shipped via " + str(event.getCarrier()) + " tracking: " + str(event.getTrackingNumber()));
         } catch (Exception e) {
             log.error("::> Failed processing shipping.order.shipped for order={}: {}", orderId, e.getMessage(), e);
@@ -126,7 +140,7 @@ public class OrderEventConsumerService {
         String orderId = str(event.getOrderId());
         log.info("::> Received shipping.order.delivered: orderId={}", orderId);
         try {
-            orderUseCase.updateStatus(orderId, OrderStatus.DELIVERED, "SYSTEM",
+            orderUseCase.updateStatus(orderId, OrderStatus.DELIVERED, CHANGED_BY_SYSTEM,
                     "Delivered at " + str(event.getDeliveredAt()));
         } catch (Exception e) {
             log.error("::> Failed processing shipping.order.delivered for order={}: {}", orderId, e.getMessage(), e);

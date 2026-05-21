@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class InvoiceUseCaseImpl implements InvoiceUseCase {
 
+    private static final String ENTITY_INVOICE = "Invoice";
+
     private final InvoiceRepository invoiceRepository;
 
     @Override
@@ -28,14 +30,20 @@ public class InvoiceUseCaseImpl implements InvoiceUseCase {
     @Override
     @Transactional(readOnly = true)
     public Invoice findById(String id) {
-        return invoiceRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Invoice", id));
+        return invoiceRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_INVOICE, id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Invoice findByOrderId(String orderId) {
         return invoiceRepository.findByOrderId(orderId)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Invoice", orderId));
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_INVOICE, orderId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<Invoice> findOptionalByOrderId(String orderId) {
+        return invoiceRepository.findByOrderId(orderId);
     }
 
     @Override
@@ -59,7 +67,7 @@ public class InvoiceUseCaseImpl implements InvoiceUseCase {
     @Transactional
     public Invoice update(String id, Invoice invoice) {
         Invoice existing = invoiceRepository.findById(id)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Invoice", id));
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_INVOICE, id));
         invoice.setId(id);
         // Preserve fields not present in the update DTO
         if (invoice.getInvoiceNumber() == null) {

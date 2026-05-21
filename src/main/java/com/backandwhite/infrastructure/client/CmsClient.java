@@ -21,6 +21,8 @@ import org.springframework.web.client.RestClient;
 @Component
 public class CmsClient implements CmsPort {
 
+    private static final String FIELD_APPLIES_TO_CATEGORIES = "appliesToCategories";
+
     private final RestClient restClient;
 
     public CmsClient(@Value("${services.cms.url:http://localhost:6006}") String baseUrl) {
@@ -66,7 +68,11 @@ public class CmsClient implements CmsPort {
      * @return the discount result including amount and campaign ID
      */
     @Override
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "java:S3776", "java:S6541", "java:S135"}) // Campaign matching is a linear scan with
+                                                                              // multiple disqualifiers (scope, dates,
+                                                                              // min order, free-shipping, type-specific
+                                                                              // math); a flat structure is the clearest
+                                                                              // expression of the rule precedence.
     public CampaignDiscountResult calculateBestCampaignDiscount(List<Map<String, Object>> campaigns, String productId,
             String categoryId, Money basePrice, Money costPrice, int quantity, Money orderSubtotal) {
 
@@ -84,7 +90,7 @@ public class CmsClient implements CmsPort {
 
             // Check appliesToCategories
             if (!applies && categoryId != null) {
-                List<String> categoryIds = (List<String>) campaign.get("appliesToCategories");
+                List<String> categoryIds = (List<String>) campaign.get(FIELD_APPLIES_TO_CATEGORIES);
                 if (categoryIds != null && categoryIds.contains(categoryId)) {
                     applies = true;
                 }
@@ -92,8 +98,8 @@ public class CmsClient implements CmsPort {
 
             // If neither list is set, the campaign applies to all products
             if (!applies && (productIds == null || productIds.isEmpty())
-                    && ((List<String>) campaign.get("appliesToCategories") == null
-                            || ((List<String>) campaign.get("appliesToCategories")).isEmpty())) {
+                    && ((List<String>) campaign.get(FIELD_APPLIES_TO_CATEGORIES) == null
+                            || ((List<String>) campaign.get(FIELD_APPLIES_TO_CATEGORIES)).isEmpty())) {
                 applies = true;
             }
 
@@ -202,7 +208,9 @@ public class CmsClient implements CmsPort {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "java:S3776", "java:S135"}) // Disqualifier scan over campaigns; flat
+                                                                // continue/return is the clearest expression of the
+                                                                // rule precedence.
     public boolean isFreeShippingCampaignActive(List<Map<String, Object>> campaigns, List<String> productIds,
             List<String> categoryIds, Money orderSubtotal) {
 
@@ -222,7 +230,7 @@ public class CmsClient implements CmsPort {
             }
 
             List<String> campaignProducts = (List<String>) campaign.get("appliesToProducts");
-            List<String> campaignCategories = (List<String>) campaign.get("appliesToCategories");
+            List<String> campaignCategories = (List<String>) campaign.get(FIELD_APPLIES_TO_CATEGORIES);
 
             boolean noScope = (campaignProducts == null || campaignProducts.isEmpty())
                     && (campaignCategories == null || campaignCategories.isEmpty());

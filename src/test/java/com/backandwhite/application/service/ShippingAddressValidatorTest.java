@@ -49,4 +49,44 @@ class ShippingAddressValidatorTest {
                 .city(" ").line1("").postCode("").phone("").build());
         assertThat(result.getErrors()).hasSizeGreaterThanOrEqualTo(5);
     }
+
+    @Test
+    @DisplayName("rejects address line1 shorter than minimum length")
+    void rejectsTooShortLine1() {
+        when(countryService.isAllowed("MX")).thenReturn(true);
+        var result = validator.validate(ShippingAddressValidator.Address.builder().countryCode("MX").city("CDMX")
+                .province("CDMX").line1("ab").postCode("06600").phone("+5255").build());
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.getErrors()).anyMatch(e -> e.contains("Address line 1 length"));
+    }
+
+    @Test
+    @DisplayName("rejects address line1 longer than maximum length")
+    void rejectsTooLongLine1() {
+        when(countryService.isAllowed("MX")).thenReturn(true);
+        String oversize = "X".repeat(250);
+        var result = validator.validate(ShippingAddressValidator.Address.builder().countryCode("MX").city("CDMX")
+                .province("CDMX").line1(oversize).postCode("06600").phone("+5255").build());
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.getErrors()).anyMatch(e -> e.contains("Address line 1 length"));
+    }
+
+    @Test
+    @DisplayName("rejects postal codes that fail the generic ZIP regex")
+    void rejectsInvalidPostalCode() {
+        when(countryService.isAllowed("MX")).thenReturn(true);
+        var result = validator.validate(ShippingAddressValidator.Address.builder().countryCode("MX").city("CDMX")
+                .province("CDMX").line1("Av. Reforma 222").postCode("@@@").phone("+5255").build());
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.getErrors()).anyMatch(e -> e.contains("Postal code"));
+    }
+
+    @Test
+    @DisplayName("rejects 1-letter country codes as malformed")
+    void rejectsShortCountryCode() {
+        var result = validator.validate(ShippingAddressValidator.Address.builder().countryCode("M").city("CDMX")
+                .province("CDMX").line1("Av. Reforma 222").postCode("06600").phone("+5255").build());
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.getErrors()).anyMatch(e -> e.contains("Country code"));
+    }
 }

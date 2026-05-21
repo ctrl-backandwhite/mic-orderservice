@@ -7,6 +7,9 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class InvoiceSpecification {
 
+    private static final String FIELD_STATUS = "status";
+    private static final String FIELD_ORDER_ID = "orderId";
+
     private InvoiceSpecification() {
     }
 
@@ -14,12 +17,14 @@ public class InvoiceSpecification {
         return (root, query, cb) -> {
             Predicate predicate = cb.conjunction();
 
-            if (filters.containsKey("status")) {
-                predicate = cb.and(predicate, cb.equal(root.get("status"),
-                        com.backandwhite.domain.valueobject.InvoiceStatus.valueOf(filters.get("status").toString())));
+            if (filters.containsKey(FIELD_STATUS)) {
+                predicate = cb.and(predicate,
+                        cb.equal(root.get(FIELD_STATUS), com.backandwhite.domain.valueobject.InvoiceStatus
+                                .valueOf(filters.get(FIELD_STATUS).toString())));
             }
-            if (filters.containsKey("orderId")) {
-                predicate = cb.and(predicate, cb.equal(root.get("orderId"), filters.get("orderId").toString()));
+            if (filters.containsKey(FIELD_ORDER_ID)) {
+                predicate = cb.and(predicate,
+                        cb.equal(root.get(FIELD_ORDER_ID), filters.get(FIELD_ORDER_ID).toString()));
             }
 
             return predicate;

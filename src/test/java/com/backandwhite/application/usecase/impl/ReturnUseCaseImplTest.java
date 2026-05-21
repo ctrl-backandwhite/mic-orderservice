@@ -70,8 +70,7 @@ class ReturnUseCaseImplTest {
 
         assertThat(saved.getStatus()).isEqualTo(ReturnStatus.REQUESTED);
         assertThat(saved.getUserId()).isEqualTo("u1");
-        verify(orderEventPort).publishOrderReturnRequested(eq("o1"), eq("r1"), eq("u1"), eq(null), eq("NX-20250101-1"),
-                eq("Broken"));
+        verify(orderEventPort).publishOrderReturnRequested("o1", "r1", "u1", null, "NX-20250101-1", "Broken");
     }
 
     @Test
@@ -188,7 +187,7 @@ class ReturnUseCaseImplTest {
 
         useCase.updateStatus("r1", ReturnStatus.APPROVED);
 
-        verify(orderEventPort).publishOrderReturnApproved(eq("o1"), eq("r1"), eq("u1"), eq(null), eq(null), eq("0.00"));
+        verify(orderEventPort).publishOrderReturnApproved("o1", "r1", "u1", null, null, "0.00");
     }
 
     @Test

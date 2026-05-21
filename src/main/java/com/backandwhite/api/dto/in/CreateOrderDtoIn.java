@@ -48,4 +48,7 @@ public class CreateOrderDtoIn {
 
     @Schema(description = "Idioma elegido por el cliente (BCP-47). Se usa para localizar la factura por email y PDF.", example = "es")
     private String customerLocale;
+
+    @Schema(description = "ID de la regla de envío elegida por el cliente en el checkout. Si llega vacío, el backend usa la primera opción disponible.", example = "6d3f...")
+    private String shippingRuleId;
 }

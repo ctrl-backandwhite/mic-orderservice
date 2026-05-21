@@ -7,6 +7,9 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class ReturnRequestSpecification {
 
+    private static final String FIELD_STATUS = "status";
+    private static final String FIELD_USER_ID = "userId";
+
     private ReturnRequestSpecification() {
     }
 
@@ -14,12 +17,13 @@ public class ReturnRequestSpecification {
         return (root, query, cb) -> {
             Predicate predicate = cb.conjunction();
 
-            if (filters.containsKey("status")) {
-                predicate = cb.and(predicate, cb.equal(root.get("status"),
-                        com.backandwhite.domain.valueobject.ReturnStatus.valueOf(filters.get("status").toString())));
+            if (filters.containsKey(FIELD_STATUS)) {
+                predicate = cb.and(predicate,
+                        cb.equal(root.get(FIELD_STATUS), com.backandwhite.domain.valueobject.ReturnStatus
+                                .valueOf(filters.get(FIELD_STATUS).toString())));
             }
-            if (filters.containsKey("userId")) {
-                predicate = cb.and(predicate, cb.equal(root.get("userId"), filters.get("userId").toString()));
+            if (filters.containsKey(FIELD_USER_ID)) {
+                predicate = cb.and(predicate, cb.equal(root.get(FIELD_USER_ID), filters.get(FIELD_USER_ID).toString()));
             }
 
             return predicate;

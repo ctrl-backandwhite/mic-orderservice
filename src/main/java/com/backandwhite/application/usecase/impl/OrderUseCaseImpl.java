@@ -40,6 +40,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class OrderUseCaseImpl implements OrderUseCase {
 
+    private static final String ENTITY_ORDER = "Order";
+    private static final String FIELD_COUNTRY = "country";
+    private static final String FIELD_PHONE = "phone";
+    private static final String FIELD_EMAIL = "email";
+    private static final String FIELD_ADDRESS = "address";
+    private static final String FIELD_QUANTITY = "quantity";
+    private static final String FIELD_UNIT_PRICE = "unitPrice";
+    private static final String FIELD_TOTAL = "total";
+
     @Value("${app.store.url:http://localhost:9000}")
     private String storeUrl;
 
@@ -78,10 +87,13 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
     @Override
     @Transactional
+    @SuppressWarnings({"java:S3776", "java:S6541"}) // Cart→Order conversion is a single business transaction with
+                                                    // sequential validation steps; extracting helpers here risks
+                                                    // splitting the rollback boundary.
     public Order createFromCart(String userId, String sessionId, Map<String, Object> shippingAddress,
             Map<String, Object> billingAddress, String paymentMethod, String couponCode, String giftCardCode,
             BigDecimal giftCardAmount, Integer loyaltyPointsUsed, BigDecimal loyaltyDiscount, String notes,
-            String currencyCode, String customerLocale) {
+            String currencyCode, String customerLocale, String shippingRuleId) {
 
         if (shippingAddress == null || shippingAddress.isEmpty()) {
             throw MAX_ADDRESSES_REACHED.toBusinessException();
@@ -89,7 +101,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         // 1. Get the active cart
         Cart cart = cartRepository.findActiveByUserId(userId).or(() -> cartRepository.findActiveBySessionId(sessionId))
-                .orElseThrow(() -> CART_NOT_FOUND.toBusinessException());
+                .orElseThrow(CART_NOT_FOUND::toBusinessException);
 
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
             throw CART_EMPTY.toBusinessException();
@@ -104,6 +116,15 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         // Pass 1: verify prices, stock, accumulate weight and rawSubtotal
         for (CartItem ci : cart.getItems()) {
+            // Quantity guard: a sale of 0 or negative units makes no business
+            // sense and would slip past the stock check (0 ≤ available is
+            // always true). Reject before doing any catalog work.
+            if (ci.getQuantity() <= 0) {
+                log.warn("::> Rejecting order — non-positive quantity {} for product={}, variant={}", ci.getQuantity(),
+                        ci.getProductId(), ci.getVariantId());
+                throw INSUFFICIENT_STOCK.toBusinessException(ci.getProductName(), ci.getQuantity(), 0);
+            }
+
             Optional<ProductVerification> verification = catalogClient.getVerifiedPriceAndCategory(ci.getProductId(),
                     ci.getVariantId());
             if (verification.isPresent()) {
@@ -122,13 +143,30 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 if (itemWeight != null && itemWeight.compareTo(BigDecimal.ZERO) > 0) {
                     totalWeight = totalWeight.add(itemWeight.multiply(BigDecimal.valueOf(ci.getQuantity())));
                 }
+            } else {
+                // Catalog unreachable (or product missing) — refuse to create the
+                // order. The cart stores prices in the buyer's selected
+                // currency, the conversion at step 4.5 assumes verified USD
+                // input, and silently skipping verification produced a
+                // catastrophic double-FX (cart_COP × rate = COP²) on April 29.
+                // Fail loud so the buyer gets a real error instead of a
+                // 100× overcharge.
+                log.error(
+                        "::> Price verification failed for product={}, variant={} — refusing to create order to avoid currency drift",
+                        ci.getProductId(), ci.getVariantId());
+                throw PRICE_VERIFICATION_FAILED.toBusinessException();
             }
 
-            // Check stock availability before creating the order (C-04)
+            // Check stock availability before creating the order (C-04).
+            // The catalog now returns the effective stock (variant inventory
+            // rows when synced, falling back to product-level warehouse /
+            // listed counters). Strict rule: must have at least `quantity`
+            // units available. -1 (legacy "unknown") is treated as zero.
             if (ci.getVariantId() != null && !ci.getVariantId().isBlank()) {
                 int available = catalogClient.getAvailableStock(ci.getVariantId());
-                if (available >= 0 && available < ci.getQuantity()) {
-                    throw INSUFFICIENT_STOCK.toBusinessException(ci.getProductName(), ci.getQuantity(), available);
+                if (available < ci.getQuantity()) {
+                    throw INSUFFICIENT_STOCK.toBusinessException(ci.getProductName(), ci.getQuantity(),
+                            Math.max(available, 0));
                 }
             }
         }
@@ -176,11 +214,22 @@ public class OrderUseCaseImpl implements OrderUseCase {
         // Fallback to a configurable flat rate when no rules match, so the
         // invoice never shows a free shipping line by accident when the
         // admin simply hasn't seeded shipping_rules for this country.
-        String country = shippingAddress.getOrDefault("country", "").toString();
+        String country = shippingAddress.getOrDefault(FIELD_COUNTRY, "").toString();
         Money shippingCost = Money.zero();
         List<ShippingRule> options = shippingTaxUseCase.findShippingOptions(country, totalWeight, subtotal);
         if (!options.isEmpty()) {
-            shippingCost = options.getFirst().getRate();
+            // Honour the option the buyer picked at checkout so the order, the
+            // invoice and the totals shown in the UI all agree. Falling back to
+            // the first option keeps backward compatibility for callers that
+            // don't yet send a shippingRuleId (eg. gift-card synthetic flows).
+            ShippingRule chosen = null;
+            if (shippingRuleId != null && !shippingRuleId.isBlank()) {
+                chosen = options.stream().filter(o -> shippingRuleId.equals(o.getId())).findFirst().orElse(null);
+            }
+            if (chosen == null) {
+                chosen = options.getFirst();
+            }
+            shippingCost = chosen.getRate();
         } else if (defaultShippingRate != null && defaultShippingRate.compareTo(java.math.BigDecimal.ZERO) > 0) {
             log.info("::> No shipping rule for country={} — using default flat rate {} USD", country,
                     defaultShippingRate);
@@ -257,7 +306,12 @@ public class OrderUseCaseImpl implements OrderUseCase {
                 exchangeRateToUsd = BigDecimal.ONE.divide(exchangeRate, 8, java.math.RoundingMode.HALF_UP);
                 subtotal = subtotal.multiply(exchangeRate);
                 shippingCost = shippingCost.multiply(exchangeRate);
-                taxAmount = taxAmount.multiply(exchangeRate);
+                // Recompute tax on the converted subtotal so the order matches
+                // the checkout preview to the cent. Multiplying tax_USD by the
+                // rate would round at a different decimal slot than the SPA's
+                // call to /api/v1/taxes/calculate (which receives the COP
+                // subtotal directly), producing a 1-2 cent drift.
+                taxAmount = shippingTaxUseCase.calculateTax(country, region, subtotal);
                 discountAmount = discountAmount.multiply(exchangeRate);
                 total = subtotal.add(shippingCost).add(taxAmount).subtract(discountAmount).floor();
             } else {
@@ -311,9 +365,11 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
     @Override
     @Transactional
+    @SuppressWarnings("java:S3776") // Confirm flow is linear: state guard + ladder + side-effects (invoice, stock,
+                                    // email); each branch is short.
     public Order confirmOrder(String orderId, String userId, String email) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", orderId));
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_ORDER, orderId));
 
         // Idempotent confirm: if the async Kafka consumer (onPaymentConfirmed)
         // or a previous retry already advanced the order, don't fail — just
@@ -322,6 +378,11 @@ public class OrderUseCaseImpl implements OrderUseCase {
         if (current == OrderStatus.PENDING || current == OrderStatus.CONFIRMED || current == OrderStatus.PROCESSING
                 || current == OrderStatus.SHIPPED || current == OrderStatus.DELIVERED) {
             log.info("::> confirmOrder idempotent — order {} already in status {}", orderId, current);
+            // The Kafka payment.confirmed handler races against this HTTP call.
+            // If it advanced the order first, the invoice creation block below
+            // never ran — we'd ship the customer an emailless purchase. Backfill
+            // the invoice here if it doesn't exist yet.
+            ensureInvoiceExists(order, email);
             return order;
         }
 
@@ -353,57 +414,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
             }
         }
 
-        // Auto-create invoice
-        Invoice invoice = null;
-        try {
-            Map<String, Object> customerSnapshot = new LinkedHashMap<>();
-            customerSnapshot.put("name", confirmed.getShippingAddress().getOrDefault("fullName", ""));
-            customerSnapshot.put("phone", confirmed.getShippingAddress().getOrDefault("phone", ""));
-            customerSnapshot.put("email",
-                    confirmed.getShippingAddress().getOrDefault("email", email != null ? email : ""));
-            customerSnapshot.put("address", buildAddressString(confirmed.getShippingAddress()));
-
-            List<Map<String, Object>> invoiceLines = new ArrayList<>();
-            for (OrderItem oi : order.getItems()) {
-                Map<String, Object> line = new LinkedHashMap<>();
-                line.put("name", oi.getProductName());
-                line.put("sku", oi.getSku());
-                line.put("quantity", oi.getQuantity());
-                line.put("unitPrice", oi.getUnitPrice().getAmount());
-                line.put("total", oi.getTotalPrice().getAmount());
-                invoiceLines.add(line);
-            }
-
-            invoice = Invoice.builder().invoiceNumber(generateInvoiceNumber()).orderId(confirmed.getId())
-                    .status(InvoiceStatus.PAID).issueDate(LocalDate.now()).dueDate(LocalDate.now().plusDays(30))
-                    .subtotal(confirmed.getSubtotal()).shipping(confirmed.getShippingCost())
-                    .tax(confirmed.getTaxAmount()).total(confirmed.getTotal())
-                    .discountAmount(
-                            confirmed.getDiscountAmount() != null ? confirmed.getDiscountAmount() : Money.zero())
-                    .giftCardAmount(
-                            confirmed.getGiftCardAmount() != null ? confirmed.getGiftCardAmount() : Money.zero())
-                    .loyaltyDiscount(
-                            confirmed.getLoyaltyDiscount() != null ? confirmed.getLoyaltyDiscount() : Money.zero())
-                    .paymentMethod(confirmed.getPaymentMethod())
-                    .currencyCode(confirmed.getCurrencyCode() != null ? confirmed.getCurrencyCode() : "USD")
-                    .customerSnapshot(customerSnapshot).lines(invoiceLines).notes(null).build();
-
-            invoiceUseCase.create(invoice);
-            log.info("Invoice {} created for order {}", invoice.getInvoiceNumber(), confirmed.getOrderNumber());
-        } catch (Exception e) {
-            log.warn("Failed to auto-create invoice for order {}: {}", confirmed.getId(), e.getMessage());
-        }
-
-        // Send invoice email via Kafka → notification service
-        if (invoice != null && email != null && !email.isBlank()) {
-            try {
-                orderEventPort.publishInvoiceEmail(email, "Factura de tu pedido " + confirmed.getOrderNumber(),
-                        "order-invoice", buildInvoiceEmailVars(confirmed, invoice));
-                log.info("Invoice email event published for order {} to {}", confirmed.getOrderNumber(), email);
-            } catch (Exception e) {
-                log.warn("Failed to publish invoice email for order {}: {}", confirmed.getId(), e.getMessage());
-            }
-        }
+        // Auto-create invoice + send email
+        ensureInvoiceExists(confirmed, email);
 
         // Apply coupon usage
         if (confirmed.getCouponId() != null) {
@@ -413,8 +425,79 @@ public class OrderUseCaseImpl implements OrderUseCase {
         return confirmed;
     }
 
+    /**
+     * Creates the invoice + publishes the email-notification event for a confirmed
+     * order, but only if no invoice exists yet. Called from the happy DRAFT→PENDING
+     * path AND from the idempotent early return so a race with the Kafka
+     * payment.confirmed handler can never leave the customer without a paid invoice
+     * / invoice email.
+     */
+    private void ensureInvoiceExists(Order confirmed, String email) {
+        Invoice invoice = invoiceUseCase.findOptionalByOrderId(confirmed.getId()).orElse(null);
+        boolean justCreated = false;
+        if (invoice != null) {
+            log.info("::> Invoice already exists for order {} — skipping recreate", confirmed.getOrderNumber());
+        } else {
+            justCreated = true;
+            try {
+                Map<String, Object> customerSnapshot = new LinkedHashMap<>();
+                customerSnapshot.put("name", confirmed.getShippingAddress().getOrDefault("fullName", ""));
+                customerSnapshot.put(FIELD_PHONE, confirmed.getShippingAddress().getOrDefault(FIELD_PHONE, ""));
+                customerSnapshot.put(FIELD_EMAIL,
+                        confirmed.getShippingAddress().getOrDefault(FIELD_EMAIL, email != null ? email : ""));
+                customerSnapshot.put(FIELD_ADDRESS, buildAddressString(confirmed.getShippingAddress()));
+
+                List<Map<String, Object>> invoiceLines = new ArrayList<>();
+                for (OrderItem oi : confirmed.getItems()) {
+                    Map<String, Object> line = new LinkedHashMap<>();
+                    line.put("name", oi.getProductName());
+                    line.put("sku", oi.getSku());
+                    line.put(FIELD_QUANTITY, oi.getQuantity());
+                    line.put(FIELD_UNIT_PRICE, oi.getUnitPrice().getAmount());
+                    line.put(FIELD_TOTAL, oi.getTotalPrice().getAmount());
+                    invoiceLines.add(line);
+                }
+
+                invoice = Invoice.builder().invoiceNumber(generateInvoiceNumber()).orderId(confirmed.getId())
+                        .status(InvoiceStatus.PAID).issueDate(LocalDate.now()).dueDate(LocalDate.now().plusDays(30))
+                        .subtotal(confirmed.getSubtotal()).shipping(confirmed.getShippingCost())
+                        .tax(confirmed.getTaxAmount()).total(confirmed.getTotal())
+                        .discountAmount(
+                                confirmed.getDiscountAmount() != null ? confirmed.getDiscountAmount() : Money.zero())
+                        .giftCardAmount(
+                                confirmed.getGiftCardAmount() != null ? confirmed.getGiftCardAmount() : Money.zero())
+                        .loyaltyDiscount(
+                                confirmed.getLoyaltyDiscount() != null ? confirmed.getLoyaltyDiscount() : Money.zero())
+                        .paymentMethod(confirmed.getPaymentMethod())
+                        .currencyCode(confirmed.getCurrencyCode() != null ? confirmed.getCurrencyCode() : "USD")
+                        .customerSnapshot(customerSnapshot).lines(invoiceLines).notes(null).build();
+
+                invoiceUseCase.create(invoice);
+                log.info("Invoice {} created for order {}", invoice.getInvoiceNumber(), confirmed.getOrderNumber());
+            } catch (Exception e) {
+                log.warn("Failed to auto-create invoice for order {}: {}", confirmed.getId(), e.getMessage());
+                return;
+            }
+        }
+
+        // Only publish the email when we just created the invoice. If it
+        // already existed the original creator path already fired the event
+        // — re-firing here would spam the user on every retry.
+        if (justCreated && email != null && !email.isBlank()) {
+            try {
+                orderEventPort.publishInvoiceEmail(email, "Factura de tu pedido " + confirmed.getOrderNumber(),
+                        "order-invoice", buildInvoiceEmailVars(confirmed, invoice));
+                log.info("Invoice email event published for order {} to {}", confirmed.getOrderNumber(), email);
+            } catch (Exception e) {
+                log.warn("Failed to publish invoice email for order {}: {}", confirmed.getId(), e.getMessage());
+            }
+        }
+    }
+
     @Override
     @Transactional
+    @SuppressWarnings("java:S3776") // Synthetic gift-card order creation: idempotency guard + invoice/email
+                                    // side-effects in a single tx.
     public Order createGiftCardOrder(String giftCardId, String code, String buyerId, String buyerEmail,
             String buyerName, String amount, String currencyCode, String recipientName, String recipientEmail,
             String message) {
@@ -443,7 +526,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
 
         Map<String, Object> billing = new LinkedHashMap<>();
         billing.put("fullName", buyerName != null ? buyerName : "");
-        billing.put("email", buyerEmail);
+        billing.put(FIELD_EMAIL, buyerEmail);
 
         // orders.user_id is NOT NULL. Fall back to a deterministic guest marker
         // derived from the gift card id so every synthetic order has a stable owner.
@@ -468,16 +551,16 @@ public class OrderUseCaseImpl implements OrderUseCase {
         try {
             Map<String, Object> customerSnapshot = new LinkedHashMap<>();
             customerSnapshot.put("name", buyerName != null ? buyerName : "");
-            customerSnapshot.put("email", buyerEmail);
-            customerSnapshot.put("address", "");
-            customerSnapshot.put("phone", "");
+            customerSnapshot.put(FIELD_EMAIL, buyerEmail);
+            customerSnapshot.put(FIELD_ADDRESS, "");
+            customerSnapshot.put(FIELD_PHONE, "");
 
             Map<String, Object> line = new LinkedHashMap<>();
             line.put("name", item.getProductName());
             line.put("sku", item.getSku());
-            line.put("quantity", 1);
-            line.put("unitPrice", total.getAmount());
-            line.put("total", total.getAmount());
+            line.put(FIELD_QUANTITY, 1);
+            line.put(FIELD_UNIT_PRICE, total.getAmount());
+            line.put(FIELD_TOTAL, total.getAmount());
 
             invoice = Invoice.builder().invoiceNumber(generateInvoiceNumber()).orderId(saved.getId())
                     .status(InvoiceStatus.PAID).issueDate(LocalDate.now()).dueDate(LocalDate.now()).subtotal(total)
@@ -525,14 +608,14 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional(readOnly = true)
     public Order findById(String id) {
-        return orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        return orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_ORDER, id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Order findByOrderNumber(String orderNumber) {
         return orderRepository.findByOrderNumber(orderNumber)
-                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", orderNumber));
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_ORDER, orderNumber));
     }
 
     @Override
@@ -556,7 +639,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional
     public Order updateStatus(String id, OrderStatus newStatus, String changedBy, String reason) {
-        Order order = orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_ORDER, id));
 
         if (!order.getStatus().canTransitionTo(newStatus)) {
             throw INVALID_STATUS_TRANSITION.toBusinessException(order.getStatus(), newStatus);
@@ -614,7 +698,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional
     public Order cancel(String id, String userId, String reason) {
-        Order order = orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_ORDER, id));
 
         if (!order.getStatus().canTransitionTo(OrderStatus.CANCELLED)) {
             throw INVALID_STATUS_TRANSITION.toBusinessException(order.getStatus(), OrderStatus.CANCELLED);
@@ -638,7 +723,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional
     public Order updateSagaStatus(String id, OrderSagaStatus sagaStatus) {
-        Order order = orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_ORDER, id));
         order.setSagaStatus(sagaStatus);
         Order updated = orderRepository.update(order);
         log.info("::> [Saga] sagaStatus updated: orderId={}, status={}", id, sagaStatus);
@@ -648,7 +734,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
     @Override
     @Transactional
     public Order updateCjFields(String id, String cjOrderId, String trackNumber) {
-        Order order = orderRepository.findById(id).orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound("Order", id));
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> ENTITY_NOT_FOUND.toEntityNotFound(ENTITY_ORDER, id));
         if (cjOrderId != null)
             order.setCjOrderId(cjOrderId);
         if (trackNumber != null)
@@ -676,12 +763,16 @@ public class OrderUseCaseImpl implements OrderUseCase {
         return orderRepository.findStatusDistribution(from, to);
     }
 
+    @SuppressWarnings("java:S2245") // non-security context: random is a cosmetic suffix for the display order
+                                    // number.
     private String generateOrderNumber() {
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         int random = ThreadLocalRandom.current().nextInt(10000, 99999);
         return "NX-" + date + "-" + random;
     }
 
+    @SuppressWarnings("java:S2245") // non-security context: random is a cosmetic suffix for the display invoice
+                                    // number.
     private String generateInvoiceNumber() {
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         int random = ThreadLocalRandom.current().nextInt(10000, 99999);
@@ -694,7 +785,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         appendIfPresent(sb, addr, "city");
         appendIfPresent(sb, addr, "region");
         appendIfPresent(sb, addr, "postalCode");
-        appendIfPresent(sb, addr, "country");
+        appendIfPresent(sb, addr, FIELD_COUNTRY);
         return sb.toString();
     }
 
@@ -754,10 +845,6 @@ public class OrderUseCaseImpl implements OrderUseCase {
     }
 
     /**
-     * Builds the template variables map for the invoice email notification. All
-     * values are strings (as required by the Avro EmailNotificationEvent schema).
-     */
-    /**
      * Resolves the customer-facing locale for invoice emails / PDFs. Prefers the
      * explicit {@code customerLocale} stored on the order (set from the frontend
      * language context). Falls back to a country-code heuristic on the shipping
@@ -779,7 +866,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         Map<String, Object> addr = order.getShippingAddress();
         if (addr == null)
             return "es";
-        String country = String.valueOf(addr.getOrDefault("country", "")).trim().toUpperCase();
+        String country = String.valueOf(addr.getOrDefault(FIELD_COUNTRY, "")).trim().toUpperCase();
         return switch (country) {
             case "BR", "PT" -> "pt";
             case "US", "UK", "GB", "CA", "AU", "NZ", "IE" -> "en";
@@ -801,8 +888,8 @@ public class OrderUseCaseImpl implements OrderUseCase {
         // Customer snapshot
         Map<String, Object> cs = invoice.getCustomerSnapshot();
         vars.put("customerName", cs != null ? String.valueOf(cs.getOrDefault("name", "")) : "");
-        vars.put("customerPhone", cs != null ? String.valueOf(cs.getOrDefault("phone", "")) : "");
-        vars.put("customerAddress", cs != null ? String.valueOf(cs.getOrDefault("address", "")) : "");
+        vars.put("customerPhone", cs != null ? String.valueOf(cs.getOrDefault(FIELD_PHONE, "")) : "");
+        vars.put("customerAddress", cs != null ? String.valueOf(cs.getOrDefault(FIELD_ADDRESS, "")) : "");
 
         // Pre-render line items as HTML table rows (avoids Thymeleaf preprocessing
         // complexity)
@@ -817,7 +904,7 @@ public class OrderUseCaseImpl implements OrderUseCase {
         vars.put("discount", fmt(invoice.getDiscountAmount()));
         vars.put("giftCard", fmt(invoice.getGiftCardAmount()));
         vars.put("loyaltyDiscount", fmt(invoice.getLoyaltyDiscount()));
-        vars.put("total", fmt(invoice.getTotal()));
+        vars.put(FIELD_TOTAL, fmt(invoice.getTotal()));
         vars.put("currency", order.getCurrencyCode() != null ? order.getCurrencyCode() : "USD");
 
         // Invoice download URL & QR code — signed link so the customer can
@@ -840,9 +927,9 @@ public class OrderUseCaseImpl implements OrderUseCase {
         for (Map<String, Object> l : lines) {
             String name = String.valueOf(l.getOrDefault("name", ""));
             String sku = String.valueOf(l.getOrDefault("sku", ""));
-            String qty = String.valueOf(l.getOrDefault("quantity", "0"));
-            String price = fmt(l.get("unitPrice"));
-            String total = fmt(l.get("total"));
+            String qty = String.valueOf(l.getOrDefault(FIELD_QUANTITY, "0"));
+            String price = fmt(l.get(FIELD_UNIT_PRICE));
+            String total = fmt(l.get(FIELD_TOTAL));
 
             sb.append("<tr><td style=\"background:#ffffff;padding:0 40px;\">").append(
                     "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border-bottom:1px solid #f1f5f9;\">")

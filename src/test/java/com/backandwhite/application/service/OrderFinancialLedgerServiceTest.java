@@ -60,4 +60,64 @@ class OrderFinancialLedgerServiceTest {
         assertThat(result.acceptable()).isFalse();
         assertThat(result.grossMarginUsd()).isLessThan(new BigDecimal("0"));
     }
+
+    @Test
+    @DisplayName("recordInbound persists an INBOUND entry with the provided fx rate")
+    void recordsInbound() {
+        when(repository.save(org.mockito.ArgumentMatchers.any(OrderFinancialLedgerEntity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        OrderFinancialLedgerEntity saved = service.recordInbound("o-1", new BigDecimal("100"), "USD", BigDecimal.ONE,
+                "stripe", "tx-1", "{}");
+        assertThat(saved.getEntryType()).isEqualTo("INBOUND");
+        assertThat(saved.getProvider()).isEqualTo("stripe");
+        assertThat(saved.getFxRate()).isEqualByComparingTo(BigDecimal.ONE);
+    }
+
+    @Test
+    @DisplayName("recordOutbound saves an OUTBOUND entry tagged 'cj'")
+    void recordsOutbound() {
+        when(repository.save(org.mockito.ArgumentMatchers.any(OrderFinancialLedgerEntity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        OrderFinancialLedgerEntity saved = service.recordOutbound("o-2", new BigDecimal("50"), "USD", "pay-1", "{}");
+        assertThat(saved.getEntryType()).isEqualTo("OUTBOUND");
+        assertThat(saved.getProvider()).isEqualTo("cj");
+        assertThat(saved.getExternalTxId()).isEqualTo("pay-1");
+    }
+
+    @Test
+    @DisplayName("recordRefund saves a REFUND entry with the supplied provider")
+    void recordsRefund() {
+        when(repository.save(org.mockito.ArgumentMatchers.any(OrderFinancialLedgerEntity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        OrderFinancialLedgerEntity saved = service.recordRefund("o-3", new BigDecimal("25"), "USD", "stripe", "rf-1",
+                "{\"reason\":\"requested\"}");
+        assertThat(saved.getEntryType()).isEqualTo("REFUND");
+        assertThat(saved.getProvider()).isEqualTo("stripe");
+    }
+
+    @Test
+    @DisplayName("recordInbound substitutes ONE when fxRate is null")
+    void inboundDefaultsFxRate() {
+        when(repository.save(org.mockito.ArgumentMatchers.any(OrderFinancialLedgerEntity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        OrderFinancialLedgerEntity saved = service.recordInbound("o-4", new BigDecimal("10"), "EUR", null, "stripe",
+                "tx-2", null);
+        assertThat(saved.getFxRate()).isEqualByComparingTo(BigDecimal.ONE);
+    }
+
+    @Test
+    @DisplayName("findByOrder delegates to the JPA repository")
+    void findByOrderDelegates() {
+        when(repository.findAllByOrderIdOrderByCreatedAtAsc("o-x")).thenReturn(List.of());
+        assertThat(service.findByOrder("o-x")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("toUsd substitutes ONE when entry fxRate is null")
+    void toUsdDefaultFx() {
+        when(repository.findAllByOrderIdOrderByCreatedAtAsc("ord-fx")).thenReturn(List.of(OrderFinancialLedgerEntity
+                .builder().entryType("INBOUND").amount(new BigDecimal("50.00")).currency("USD").fxRate(null).build()));
+        var result = service.reconcile("ord-fx", new BigDecimal("10"));
+        assertThat(result.netInboundUsd()).isEqualByComparingTo("50.0000");
+    }
 }

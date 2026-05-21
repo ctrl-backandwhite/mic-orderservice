@@ -7,6 +7,8 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class CouponSpecification {
 
+    private static final String FIELD_ACTIVE = "active";
+
     private CouponSpecification() {
     }
 
@@ -14,9 +16,9 @@ public class CouponSpecification {
         return (root, query, cb) -> {
             Predicate predicate = cb.conjunction();
 
-            if (filters.containsKey("active")) {
+            if (filters.containsKey(FIELD_ACTIVE)) {
                 predicate = cb.and(predicate,
-                        cb.equal(root.get("active"), Boolean.valueOf(filters.get("active").toString())));
+                        cb.equal(root.get(FIELD_ACTIVE), Boolean.valueOf(filters.get(FIELD_ACTIVE).toString())));
             }
             if (filters.containsKey("type")) {
                 predicate = cb.and(predicate, cb.equal(root.get("type"),
